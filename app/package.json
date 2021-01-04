@@ -1,0 +1,10 @@
+{
+  "name": "clutter",
+  "main": "index.js",
+  "scripts": {
+    "start": "deskgap ."
+  },
+  "devDependencies": {
+    "deskgap": "^0.2.0"
+  }
+}
