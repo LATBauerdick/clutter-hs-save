@@ -1,10 +1,6 @@
 {-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators   #-}
-
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE QuasiQuotes #-}
 
 
 
@@ -14,14 +10,12 @@ module Env
     , initEnv
     ) where
 
-import Data.Aeson
-import Data.Aeson.TH
 
 -- import Control.Monad.IO.Class ( liftIO )
 -- import qualified Data.Map.Strict as Map
 -- import qualified Data.Foldable as F
 -- import Data.Maybe ( mapMaybe )
-import qualified Data.Vector as V ( Vector (..), toList, fromList, singleton )
+import qualified Data.Vector as V ( Vector (..), fromList, singleton )
 import Data.List (sortBy)
 import Data.Ord (comparing)
 
@@ -29,8 +23,6 @@ import Data.Ord (comparing)
 import qualified Data.Map as M
 -- import qualified Lucid as L
 -- import Network.HTTP.Media ((//), (/:))
-import Data.Text (Text)
-import qualified Data.Text as T
 import FromJSON ( Tidal (..)
                 , Discogs (..)
                 , Album (..)
@@ -49,8 +41,8 @@ data Env
   , aidAdded :: V.Vector Int
   }
 
-sortAdded :: (M.Map Int Album) -> V.Vector Int -- reverse chronological
-sortAdded am = V.fromList $ fst <$> (sortBy ( \ (_,a) (_,b) -> comparing albumAdded b a ) $ M.toList am)
+sortAdded :: M.Map Int Album -> V.Vector Int -- reverse chronological
+sortAdded am = V.fromList $ fst <$> sortBy ( \ (_,a) (_,b) -> comparing albumAdded b a ) ( M.toList am)
 -- aidTitles :: (M.Map Int Album) -> V.Vector Int
 -- aidTitles am = V.fromList $ fst <$> (sortBy ( \ (_,a) (_,b) -> comparing albumTitle a b ) $ M.toList am)
 -- aidArtists :: (M.Map Int Album) -> V.Vector Int
@@ -65,9 +57,9 @@ testAlbum = Album 123123
                   "Test Artists"
                   "2021"
                   "https://img.discogs.com/cOcoe8orblZUZlh_L68I8Kx3lnA=/fit-in/600x617/filters:strip_icc():format(jpeg):mode_rgb():quality(90)/discogs-images/R-6420873-1603309252-4033.jpeg.jpg"
-                  "2021-01-01T01:23:01-07:00" "Pop" (\a -> "xxx")
+                  "2021-01-01T01:23:01-07:00" "Pop" ( const "xxx" )
 
-initEnv :: IO (Env)
+initEnv :: IO Env
 initEnv = do
   let am0 = M.singleton 1 testAlbum
   am1 <- albumMap $ Discogs "data/dall.json"

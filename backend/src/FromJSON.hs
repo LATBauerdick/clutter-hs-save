@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module FromJSON ( Album (..)
@@ -18,16 +19,14 @@ import qualified Data.Foldable as F
 -- import qualified Data.Csv.Streaming as CS
 -- import qualified Data.Csv.Parser as CP
 
-import Data.Aeson (ToJSON(..), Value(..), object, (.=), (.:), (.:?), (.!=), FromJSON(..), withObject, eitherDecode)
+import Data.Aeson ( (.:), (.:?), (.!=), FromJSON(..), withObject, eitherDecode)
 
 import Data.Either (fromRight)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Lazy.Encoding as TL
-import Data.Text.Encoding ( decodeUtf8, decodeLatin1 )
+import Data.Text.Encoding ( decodeUtf8 )
 import qualified Data.Vector as V (Vector, fromList)
-import Data.Char ( ord )
 import qualified Data.Map.Strict as M
 
 import Text.RawString.QQ
@@ -44,7 +43,7 @@ data Album
 , albumURL      :: Album -> Text
   }
 instance Eq Album where
-  (==) a b = (albumID a) == (albumID b)
+  (==) a b = albumID a == albumID b
 instance Show Album where
   show a = "Album {albumID = " ++ show (albumID a) ++ ", albumTitle =" ++ show (albumTitle a) ++ "}"
 
@@ -62,16 +61,16 @@ class Provider p where
   getAlbumURL :: p -> Album -> Text
   albumMap :: p -> IO (M.Map Int Album)
 
-data Tidal
+newtype Tidal
   = Tidal FilePath
-data Discogs
+newtype Discogs
   = Discogs FilePath
 
 instance Provider Tidal where
 
-  toCoverURL _ r = T.concat [ T.pack "https://resources.tidal.com/images/", (T.intercalate "/" $ T.splitOn "-" (dcover r)), (T.pack "/320x320.jpg") ]
+  toCoverURL _ r = T.concat [ T.pack "https://resources.tidal.com/images/", T.intercalate "/" $ T.splitOn "-" (dcover r), T.pack "/320x320.jpg" ]
 
-  toFolder _ r = "Tidal"
+  toFolder _ _ = "Tidal"
 
   toAlbum p r = Album (daid r) (dtitle r) (T.intercalate ", " $ dartists r) (dreleased r) (toCoverURL p r) (dadded r) (toFolder p r) (getAlbumURL p)
 
@@ -83,12 +82,12 @@ instance Provider Tidal where
     d <- (eitherDecode <$> BL.readFile fn) :: IO (Either String [Release])
     case d of
       Left err -> putStrLn err
-      Right ds -> print $ drop ((length ds)-4) ds
+      Right ds -> print $ drop (length ds-4) ds
     let ds = fromRight [] d
-        as  = (toAlbum p) <$> ds where
+        as  = toAlbum p <$> ds
 
     putStrLn $ "Total # Albums: " ++ show (length as)
-    print $ drop ((length as)-4) as
+    print $ drop (length as - 4) as
 
     return $ M.fromList $ map (\ a -> (albumID a, a)) as
 
@@ -117,12 +116,12 @@ instance Provider Discogs where
     d <- (eitherDecode <$> BL.readFile fn) :: IO (Either String [Release])
     case d of
       Left err -> putStrLn err
-      Right ds -> print $ drop ((length ds)-4) ds
+      Right ds -> print $ drop ( length ds - 4) ds
     let ds = fromRight [] d
-        as  = (toAlbum p) <$> ds where
+        as  = toAlbum p <$> ds
 
     putStrLn $ "Total # Albums: " ++ show (length as)
-    print $ drop ((length as)-4) as
+    print $ drop ( length as - 4 ) as
 
     return $ M.fromList $ map (\ a -> (albumID a, a)) as
 
@@ -206,7 +205,7 @@ readDLists = do
       Left err -> putStrLn err
       Right ds -> print ds
     let ds = V.fromList $ fromRight [] d
-    F.for_ ds $ print
+    F.for_ ds print
 
     -- let lists :: M.Map Text Int
 
@@ -226,7 +225,7 @@ readDFolders = do
       Left err -> putStrLn err
       Right ds -> print ds
     let ds = V.fromList $ fromRight [] d
-    F.for_ ds $ print
+    F.for_ ds print
 
     -- let folders :: M.Map Text Int
 
@@ -238,10 +237,7 @@ readDFolders = do
     return ( fnm, ls)
 
 
-data DAid
-  = DAid
-  { dlaid   :: Int
-  } deriving (Show)
+newtype DAid = DAid { dlaid   :: Int } deriving (Show)
 instance FromJSON DAid where
   parseJSON = withObject "daid" $ \ o -> do
     d_   <- o .: "id"
@@ -254,21 +250,20 @@ readDAids fn = do
     Left err -> putStrLn err
     Right ds -> print ds
   let ds = V.fromList $ fromRight [] d
-      aids  = ( dlaid ) <$> ds
+      aids  = dlaid <$> ds
   return aids
 
-  {-
 cmdqq :: Text
 cmdqq = [r|
 
-# get raw JSON from discogs and pre-process
+  get raw JSON from discogs and pre-process
 
 curl "https://api.discogs.com/users/LATB/collection/folders/0/releases?page=1&per_page=500" -H "Authorization: Discogs token=<token>" > data/draw1.json
 curl "https://api.discogs.com/users/LATB/collection/folders/0/releases?page=2&per_page=500" -H "Authorization: Discogs token=<token>" > data/draw2.json
 curl "https://api.discogs.com/users/LATB/collection/folders/0/releases?page=3&per_page=500" -H "Authorization: Discogs token=<token>" > data/draw3.json
 cat data/draw*.json | jq -s '[ .[].releases[] | {id: .id, title: .basic_information.title, artists: [ .basic_information.artists[].name], released: .basic_information.year|tostring, added: .date_added, cover: .basic_information.cover_image, folder: .folder_id }]' > data/dall.json
 
-# get list of Folders and pre-process
+ # get list of Folders and pre-process
 curl "https://api.discogs.com/users/LATB/collection/folders" -H "Authorization: Discogs token=<token>"
 cat data/folders-raw.json | jq -s '[ .[].folders[] | { id: .id, name: .name }]' > data/folders.json
 
@@ -309,7 +304,4 @@ curl "https://api.discogs.com/users/LATB/collection/folders/1349997/releases" -H
 
 
 |]
-
-     -}
-
 
