@@ -2,7 +2,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
-import Lib ( app, initEnv )
+import Lib ( app )
+import Env ( Env (..), testEnv, initEnv )
 import Test.Hspec
 import Test.Hspec.Wai
 import Test.Hspec.Wai.JSON
@@ -17,7 +18,7 @@ main = do
   hspec spec
 
 spec :: Spec
-spec = with (return app) $ do
+spec = with (return ( app testEnv )) $ do
     describe "GET /albums" $ do
         it "responds with 200" $ do
             get "/albums" `shouldRespondWith` 200

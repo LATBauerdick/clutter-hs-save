@@ -41,7 +41,7 @@ data Album
   , albumCover    :: Text
   , albumAdded    :: Text
   , albumFolder   :: Text
-  , albumURL      :: Album -> Text
+, albumURL      :: Album -> Text
   }
 instance Eq Album where
   (==) a b = (albumID a) == (albumID b)

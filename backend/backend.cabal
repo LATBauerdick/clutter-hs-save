@@ -26,8 +26,10 @@ source-repository head
 
 library
   exposed-modules:
+      Env
       FromJSON
       Lib
+      Render
   other-modules:
       Paths_backend
   hs-source-dirs:
