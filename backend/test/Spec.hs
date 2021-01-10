@@ -8,11 +8,11 @@ import Test.Hspec
 import Test.Hspec.Wai
 import Test.Hspec.Wai.JSON
 
-import FromJSON ( Discogs (..), albumMap )
+import Provider ( Discogs (..), readAlbums )
 
 main :: IO ()
 main = do
-  a <- albumMap $ Discogs "data/tall.json"
+  a <- readAlbums $ Discogs "data/tall.json"
   _ <- initEnv
 
   hspec spec
