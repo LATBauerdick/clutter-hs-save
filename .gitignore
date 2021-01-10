@@ -1,3 +1,4 @@
 node_modules
 backend/.stack-work
+backend/data
 .DS_Store
