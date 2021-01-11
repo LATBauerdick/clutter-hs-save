@@ -1,20 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
 
 
 module Provider ( Album (..)
                 , Tidal (..)
                 , Discogs (..)
-                , readDLists
-                , readDFolders
+                -- , readDLists
+                -- , readDFolders
                 , readAlbums
+                , readLists
                 , atest
                 ) where
 
 import FromJSON ( Release (..)
                 , readReleases
-                , readDLists
-                , readDFolders
+                , readLists
+                -- , readDLists
+                -- , readDFolders
                 )
 
 import Data.Maybe (fromMaybe)
@@ -22,12 +23,8 @@ import Data.Text.Encoding ( decodeUtf8 )
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
 
-import qualified Data.ByteString.Lazy as BL
-import Control.Exception (IOException)
-import qualified Control.Exception as Exception
 import Data.Text (Text)
 import qualified Data.Text as T
-import Text.RawString.QQ
 
 data Album
   = Album
@@ -80,7 +77,7 @@ instance Provider Tidal where
     ds <- readReleases fn
     let as  = toAlbum p <$> ds
 
-    putStrLn $ "Total # Albums: " ++ show (length as)
+    putStrLn $ "Total # Tidal Albums: " ++ show (length as)
     print $ drop (length as - 4) as
     return $ V.fromList as
     -- return $ M.fromList $ map (\ a -> (albumID a, a)) as
@@ -110,7 +107,7 @@ instance Provider Discogs where
     ds <- readReleases fn
     let as  = toAlbum p <$> ds
 
-    putStrLn $ "Total # Albums: " ++ show (length as)
+    putStrLn $ "Total # Discogs Albums: " ++ show (length as)
     print $ drop ( length as - 4 ) as
     return $ V.fromList as
     -- return $ M.fromList $ map (\ a -> (albumID a, a)) as
@@ -128,69 +125,4 @@ instance Provider Discogs where
 -- LOSSLESS
 -- HI_RES
 -- HIGH
-
-
-catchShowIO :: IO a -> IO (Either String a)
-catchShowIO action = fmap Right action `Exception.catch` handleIOException
-  where
-    handleIOException
-      :: IOException
-      -> IO (Either String a)
-    handleIOException =
-      return . Left . show
-
-
-
-cmdqq :: Text
-cmdqq = [r|
-
-  get raw JSON from discogs and pre-process
-
-curl "https://api.discogs.com/users/LATB/collection/folders/0/releases?page=1&per_page=500" -H "Authorization: Discogs token=<token>" > data/draw1.json
-curl "https://api.discogs.com/users/LATB/collection/folders/0/releases?page=2&per_page=500" -H "Authorization: Discogs token=<token>" > data/draw2.json
-curl "https://api.discogs.com/users/LATB/collection/folders/0/releases?page=3&per_page=500" -H "Authorization: Discogs token=<token>" > data/draw3.json
-cat data/draw*.json | jq -s '[ .[].releases[] | {id: .id, title: .basic_information.title, artists: [ .basic_information.artists[].name], released: .basic_information.year|tostring, added: .date_added, cover: .basic_information.cover_image, folder: .folder_id }]' > data/dall.json
-
- # get list of Folders and pre-process
-curl "https://api.discogs.com/users/LATB/collection/folders" -H "Authorization: Discogs token=<token>"
-cat data/folders-raw.json | jq -s '[ .[].folders[] | { id: .id, name: .name }]' > data/folders.json
-
-# get aids for folder and pre-process
-curl "https://api.discogs.com/users/LATB/collection/folders/1349997/releases?sort=added&sort_order=desc&page=1&per_page=500" -H "Authorization: Discogs token=<token>" > data/f1349997-raw.json
-cat data/f1349997-raw.json | jq -s '[ .[].releases[] | { id: .id  }]' > data/f1349997.json
-
-# get list of Lists and pre-process
-curl "https://api.discogs.com/users/LATB/lists" -H "Authorization: Discogs token=<token>"  > data/lists-raw.json
-cat data/lists-raw.json | jq -s '[ .[].lists[] | { id: .id, name: .name }]' > data/lists.json
-
-# get aids from list and pre-process
-curl "https://api.discogs.com/lists/540434" -H "Authorization: Discogs token=<token>"   > data/l540434-raw.json
-cat data/l541650-raw.json | jq -s '[ .[].items[] | { id: .id  }]' > data/l541650.json
-
-# get raw JSON from Tidal and pre-process
-
-curl https://api.tidalhifi.com/v1/users/45589625/favorites/albums/\?sessionId\=<session-id>\&countryCode\=US\&limit\=2999 > data/traw.json
-cat data/traw.json | jq -s '[ .[].items[] | { id: .item.id, title: .item.title, artists: [ .item.artists[].name ], released: .item.releaseDate, added: .created, cover: .item.cover, Folder: 999 } ]' > data/tall.json
-
-
-
-
-
-
-
-# get release <id>
-curl "https://api.discogs.com/releases/8807550" -H "Authorization: Discogs token=<token>"  | jq --color-output -r '.' | bat -n
-
-# get all releases from my list <id> ("Listened")
-curl "https://api.discogs.com/lists/540434" -H "Authorization: Discogs token=<token>"  | jq --color-output -r '.items[0]' | bat -n
-
-# get all releases in folder Pop
-curl "https://api.discogs.com/users/LATB/collection/folders/1349997/releases" -H "Authorization: Discogs token=<token>"  | jq --color-output -r '.releases[] | {id: .id, title: .basic_information.title, artist: .basic_information.artists[0].name, added: .date_added } | join ("\t")' | bat -n
-
-
-
-
-
-|]
-
 

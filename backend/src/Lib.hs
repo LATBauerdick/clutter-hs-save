@@ -17,6 +17,7 @@ import Network.Wai.Handler.Warp
 import Servant
 
 import qualified Data.Map.Strict as M
+import Data.Text (Text)
 
 import qualified Data.ByteString.Lazy as BL
 import qualified Lucid as L
@@ -44,7 +45,7 @@ instance MimeRender HTML RawHtml where
 -- $(deriveJSON defaultOptions ''Album)
 
 type API0 = "album"  :> Capture "aid" Int :> Get '[HTML] RawHtml
-type API1 = "albums" :> Get '[HTML] RawHtml
+type API1 = "albums" :> Capture "list" Text :> Get '[HTML] RawHtml
 -- type API2 = "albumj" :> Get '[JSON] [Album]
 type API = API0 :<|> API1
   -- :<|> API2 
@@ -60,9 +61,9 @@ server env = serveAlbum :<|> serveAlbums
         serveAlbum aid = do
           let mAlbum = M.lookup aid ( albums env )
           return $ RawHtml $ L.renderBS (renderAlbum mAlbum)
-        serveAlbums :: Handler RawHtml
-        serveAlbums = do
-          return $ RawHtml $ L.renderBS (renderAlbums env)
+        serveAlbums :: Text -> Handler RawHtml
+        serveAlbums list = do
+          return $ RawHtml $ L.renderBS ( renderAlbums env list "Default" )
         -- serveJSON :: Server API2
         -- serveJSON = do
         --   return $ M.elems ( albums env )

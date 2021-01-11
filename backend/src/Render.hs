@@ -22,7 +22,7 @@ module Render
 import qualified Data.Map.Strict as M
 import qualified Data.Foldable as F
 import Data.Maybe ( mapMaybe )
-import qualified Data.Vector as V ( fromList )
+import qualified Data.Vector as V ( toList, fromList )
 
 -- import qualified Data.ByteString.Lazy as BL
 import qualified Lucid as L
@@ -55,49 +55,48 @@ renderAlbum mAlbum = L.html_ $ do
           L.p_ $ L.toHtml ("Year: " ++ T.unpack (albumReleased a))
           L.br_ []
 
-renderAlbums :: Env -> L.Html ()
-renderAlbums env =
+renderAlbums :: Env -> Text -> Text -> L.Html ()
+renderAlbums env ln sn =
     -- L.doctype_ "html"
     L.html_ $ do
-      renderHead "Clutter - Album Grid"
+      renderHead $ "Albums - " <> ln
       L.body_ albumBody
       where
         addLink :: Text -> L.Html ()
         addLink t =
-              L.a_ [ L.href_ ( url env <> t ) ] $ do
+              L.a_ [ L.href_ ( url env <>  "albums/" <> t ) ] $ do
                 L.toHtml ( T.unpack t )
 
         albumBody = do
+-- Left Menu
           L.ul_ $ do
-            L.li_ $ L.a_ [ L.class_ "active", L.href_ ( url env <> "albums" ) ] "Home"
+            L.li_ $ L.a_ [ L.class_ "active", L.href_ ( url env <> "albums/All" ) ] "Home"
             L.li_ [L.class_ "dropdown"] $ do
-              L.a_ [ L.class_ "dropbtn", L.href_ "javascript:void(0)" ] "Lists"
+              L.a_ [ L.class_ "dropbtn", L.href_ "javascript:void(0)" ] 
+                ( L.toHtml ( "List " ++ T.unpack ln ))
               L.div_ [ L.class_ "dropdown-content" ] $ do
-                      -- L.a_ [ L.href_  t ] t
-                F.traverse_ addLink $ V.fromList [ "aaa", "bbb" ]
---              ( \ t -> L.a_ [ L.href_ "#" ] t ( url env <> t ) ] t)  "Listened" --, "Tidal", "Pop" ]
+                F.traverse_ addLink  ( lists env )
 
+            L.li_ [L.class_ "dropdown"] $ do
+              L.a_ [ L.class_ "dropbtn", L.href_ "javascript:void(0)" ] 
+                ( L.toHtml ( "Sort by " ++ T.unpack sn ))
+              L.div_ [ L.class_ "dropdown-content" ] $ do
+                F.traverse_ addLink  ( sorts env )
 
-  -- <li class="dropdown">
-  --   <a href="javascript:void(0)" class="dropbtn">Dropdown</a>
-  --   <div class="dropdown-content">
-  --     <a href="#">Link 1</a>
-  --     <a href="#">Link 2</a>
-  --     <a href="#">Link 3</a>
-  --   </div>
-  -- </li>
-
-
-
-            L.li_ $ L.a_ [ L.href_ ( url env <> "album"  ) ] "Album"
             L.li_ $ L.a_ [ L.href_ ( url env ) ] "index"
+-- grid of Albums
           L.div_ [L.class_ "albums"] $ do
             L.div_ [L.class_ "row"] $ do
-              renderTNs env
+              renderTNs env ln sn
 
-renderTNs :: Env -> L.Html ()
-renderTNs env =
-  F.traverse_ renderAlbumTN (albumList env)
+renderTNs :: Env -> Text -> Text -> L.Html ()
+renderTNs env ln sn =
+  F.traverse_ renderAlbumTN albumList where
+    sort = getSort env sn
+    aids = getList env ln
+    albumList = V.fromList $
+        mapMaybe ( `M.lookup` albums env )
+        ( V.toList (sort aids) )
 
 renderAlbumTN :: Album -> L.Html ()
 renderAlbumTN a =
@@ -117,7 +116,7 @@ renderAlbumTN a =
 renderHead :: Text -> L.Html ()
 renderHead t =
       L.head_ $ do
-        L.title_ "Albums" -- t
+        L.title_ $ L.toHtml ( T.unpack t )
         L.meta_ [L.charset_ "utf-8"]
         L.meta_ [L.name_ "viewport", L.content_ "width=device-width, initial-scale=1.0"]
         L.meta_ [L.httpEquiv_ "X-UA-Compatible", L.content_ "ie=edge"]
@@ -131,20 +130,4 @@ styleqq = [r|
 }
 
 |]
-
-    -- a = Album 123123 "Test Title" "Test Artists" 2020 "https://img.discogs.com/cOcoe8orblZUZlh_L68I8Kx3lnA=/fit-in/600x617/filters:strip_icc():format(jpeg):mode_rgb():quality(90)/discogs-images/R-6420873-1603309252-4033.jpeg.jpg"
-
-
-
--- <h2>Dropdown Menu</h2>
--- <p>Move the mouse over the button to open the dropdown menu.</p>
--- <div class="dropdown">
---   <button class="dropbtn">Dropdown</button>
---   <div class="dropdown-content">
---   <a href="#">Link 1</a>
---   <a href="#">Link 2</a>
---   <a href="#">Link 3</a>
---   </div>
--- </div>
-
 

@@ -11,9 +11,6 @@ module Env
     ) where
 import Prelude hiding ( (++) )
 
--- import Control.Monad.IO.Class ( liftIO )
--- import qualified Data.Map.Strict as Map
--- import qualified Data.Foldable as F
 import Data.Maybe ( mapMaybe, fromMaybe )
 import Data.Vector ( Vector (..), (++) )
 import qualified Data.Vector as V ( fromList, toList, empty, singleton, map)
@@ -28,31 +25,19 @@ import qualified Data.Map.Strict as M
 import Provider ( Tidal (..)
                 , Discogs (..)
                 , Album (..)
-                , readDLists
-                , readDFolders
                 , readAlbums
+                , readLists
                 )
-
-
-
------------------------ Provider stuff
 
 data Env
   = Env
   { albums      :: M.Map Int Album
-  -- , currentList :: Vector Int
-  , albumList   :: Vector Album
-  -- , sort        :: Vector Int -> Vector Int
-  , url         :: Text
   , lists       :: Vector Text
+  , getList     :: Text -> Vector Int
+  , sorts       :: Vector Text
+  , getSort     :: Text -> ( Vector Int -> Vector Int )
+  , url         :: Text
   }
-
--- sortAdded :: M.Map Int Album -> Vector Int -- reverse chronological
--- sortAdded am = V.fromList $ fst <$> sortBy ( \ (_,a) (_,b) -> comparing albumAdded b a ) ( M.toList am)
--- aidTitles :: (M.Map Int Album) -> Vector Int
--- aidTitles am = V.fromList $ fst <$> (sortBy ( \ (_,a) (_,b) -> comparing albumTitle a b ) $ M.toList am)
--- aidArtists :: (M.Map Int Album) -> Vector Int
--- aidArtists am = V.fromList $ fst <$> (sortBy ( \ (_,a) (_,b) -> comparing albumArtist a b ) $ M.toList am)
 
 testEnv :: Env
 testEnv = Env { albums = M.singleton 1 testAlbum, url = "http://localhost:8080/" }
@@ -73,27 +58,11 @@ initEnv = do
   let vaa :: Vector Album
       vaa = vda ++ vta
 
-  let va = V.map albumID vaa
-  let thisAlbumMap = M.fromList $ map (\ a -> (albumID a, a)) (V.toList vaa)
+  let myAlbumMap = M.fromList $ map (\ a -> (albumID a, a)) (V.toList vaa)
 
-
-  vl <- readDLists "Listened"
-  vp <- readDFolders "Piano"
-  vf <- readDFolders "Pop"
-  let lists :: M.Map Text ( Vector Int ) -- map of albumID lists
-      lists = M.fromList [ ( "All",      va )
-                         , ( "Discogs",  V.map albumID vda )
-                         , ( "Tidal",    V.map albumID vta )
-                         , ( "Listened", vl )
-                         , ( "Piano",    vp )
-                         , ( "Pop",      vf )
-                         ]
-      getList :: Text -> Vector Int
-      getList t = fromMaybe V.empty (M.lookup t lists)
-
--- return the list of tuples (albumID, Maybe Album), unsorted
+-- define sort functions
   let asi :: Vector Int -> [ ( Int, Maybe Album ) ]
-      asi aids =  map ( \aid -> ( aid, M.lookup aid thisAlbumMap ) ) $ V.toList aids
+      asi aids =  map ( \aid -> ( aid, M.lookup aid myAlbumMap ) ) $ V.toList aids
   let sDef :: Vector Int -> Vector Int
       sDef l = l
   let sAdded :: Vector Int -> Vector Int
@@ -110,16 +79,24 @@ initEnv = do
                        ]
       getSf :: Text -> (Vector Int -> Vector Int)
       getSf t = fromMaybe sDef (M.lookup t sfs)
-
-  let thisList :: Vector Int
-      thisList = getList "Listened"
-
-  let thisSort :: Vector Int -> Vector Int
-      thisSort = getSf "Title"
-
-  let thisAlbumList :: Vector Album
-      thisAlbumList = V.fromList $ mapMaybe ( `M.lookup` thisAlbumMap ) ( V.toList (thisSort thisList) )
+      sns = V.fromList $ M.keys sfs
 
 
-  return $ Env { albums = thisAlbumMap, albumList = thisAlbumList, url = "http://localhost:8080/" }
+-- read the map of Discogs lists and folders
+  lm <- readLists
+-- add the Tidal, Discogs, and the All lists "by hand"
+-- and sort them ("Default") for Date Added
+  let ds = sAdded $ albumID <$> vda -- getList "All"
+      ts = sAdded $ albumID <$> vta
+      as = sAdded $ albumID <$> vaa
+
+  let myLists = M.union ( M.fromList  [ ( "Discogs", ds ), ( "Tidal", ts ), ("All", as ) ] ) lm
+      getList :: Text -> Vector Int
+      getList ln = fromMaybe V.empty (M.lookup ln myLists )
+      lists :: Vector Text
+      lists = V.fromList $ M.keys myLists
+
+
+
+  return $ Env { lists = lists, getList = getList, albums = myAlbumMap, url = "http://localhost:8080/", sorts = sns, getSort = getSf }
 
