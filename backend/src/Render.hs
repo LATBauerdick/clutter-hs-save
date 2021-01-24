@@ -75,7 +75,7 @@ renderAlbums env ln sn =
               L.a_ [ L.class_ "dropbtn", L.href_ "javascript:void(0)" ] 
                 ( L.toHtml ( "List " ++ T.unpack ln ))
               L.div_ [ L.class_ "dropdown-content" ] $ do
-                F.traverse_ addLink  ( lists env )
+                F.traverse_ addLink  ( listNames env )
 
             L.li_ [L.class_ "dropdown"] $ do
               L.a_ [ L.class_ "dropbtn", L.href_ "javascript:void(0)" ] 
@@ -102,8 +102,6 @@ renderAlbumTN :: Album -> L.Html ()
 renderAlbumTN a =
         L.div_ [L.class_ "album-thumb"] $ do
           L.div_ [L.class_ "cover-art"] $ do
-            -- L.a_ [L.href_ $ T.pack ("https://www.discogs.com/release/" ++ show (albumID a))] $ do
-            -- L.a_ [L.href_ $ T.pack ("https://www.tidal.com/album/" ++ show (albumID a))] $ do
             L.a_ [L.href_ (albumURL a a)] $ do
               L.img_ [ L.src_ (albumCover a), L.alt_ "cover image." ]
           L.div_ [L.class_ "album-info"] $ do

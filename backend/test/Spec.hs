@@ -13,7 +13,7 @@ import Provider ( Discogs (..), readAlbums )
 main :: IO ()
 main = do
   a <- readAlbums $ Discogs "data/tall.json"
-  _ <- initEnv
+  _ <- initEnv Nothing Nothing
 
   hspec spec
 

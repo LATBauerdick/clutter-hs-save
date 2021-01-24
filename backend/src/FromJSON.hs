@@ -12,7 +12,8 @@ import qualified Data.Foldable as F
 
 import Data.Aeson ( (.:), (.:?), (.!=), FromJSON(..), withObject, eitherDecode)
 import Data.Vector ( Vector )
-import qualified Data.Vector as V (fromList, toList, forM )
+import qualified Data.Vector as V (fromList, toList )
+import Data.Traversable ( traverse )
 import qualified Data.Map as M
 import Data.Text (Text)
 import Data.Either (fromRight)
@@ -80,6 +81,8 @@ readReleases fn =do
 
 readLists :: IO ( M.Map Text ( Vector Int ) )
 readLists = do
+
+-- read the names and IDs of my Discogs lists or folders
     let readNameIds :: FilePath -> IO ( Vector DLists )
         readNameIds fn = do
           d <- (eitherDecode <$> BL.readFile fn) :: IO (Either String [DLists])
@@ -102,7 +105,7 @@ readLists = do
 
     ls <- readNameIds "data/lists.json"
     fs <- readNameIds "data/folders.json"
-    lm <- V.forM ( ls <> fs ) readListAids
+    lm <- traverse readListAids ( ls <> fs )
 
     return $ M.fromList ( V.toList lm )
 

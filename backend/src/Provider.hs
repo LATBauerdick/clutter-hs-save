@@ -4,19 +4,15 @@
 module Provider ( Album (..)
                 , Tidal (..)
                 , Discogs (..)
-                -- , readDLists
-                -- , readDFolders
+                , DAuth (..)
+                , DToken (..)
                 , readAlbums
                 , readLists
                 , atest
                 ) where
 
-import FromJSON ( Release (..)
-                , readReleases
-                , readLists
-                -- , readDLists
-                -- , readDFolders
-                )
+import FromJSON ( Release (..) )
+import qualified FromJSON as FJ ( readReleases, readLists )
 
 import Data.Maybe (fromMaybe)
 import Data.Text.Encoding ( decodeUtf8 )
@@ -25,6 +21,7 @@ import qualified Data.Vector as V
 
 import Data.Text (Text)
 import qualified Data.Text as T
+
 
 data Album
   = Album
@@ -55,6 +52,10 @@ class Provider p where
   toFolder :: p -> Release -> Text
   getAlbumURL :: p -> Album -> Text
   readAlbums :: p -> IO (V.Vector Album)
+  readLists :: p ->  IO ( M.Map Text ( V.Vector Int ) )
+
+newtype DToken = DToken Text
+data DAuth = DAuth FilePath DToken
 
 newtype Tidal
   = Tidal FilePath
@@ -74,13 +75,15 @@ instance Provider Tidal where
   readAlbums p = do
     let fn :: FilePath
         fn = "data/tall.json"
-    ds <- readReleases fn
+    ds <- FJ.readReleases fn
     let as  = toAlbum p <$> ds
 
     putStrLn $ "Total # Tidal Albums: " ++ show (length as)
     print $ drop (length as - 4) as
     return $ V.fromList as
     -- return $ M.fromList $ map (\ a -> (albumID a, a)) as
+
+  readLists _ = undefined
 
 instance Provider Discogs where
 
@@ -104,13 +107,15 @@ instance Provider Discogs where
   readAlbums p = do
     let fn :: FilePath
         fn = "data/dall.json"
-    ds <- readReleases fn
+    ds <- FJ.readReleases fn
     let as  = toAlbum p <$> ds
 
     putStrLn $ "Total # Discogs Albums: " ++ show (length as)
     print $ drop ( length as - 4 ) as
     return $ V.fromList as
     -- return $ M.fromList $ map (\ a -> (albumID a, a)) as
+
+  readLists _ = FJ.readLists
 
 -- items[].item.type
 -- "SINGLE"

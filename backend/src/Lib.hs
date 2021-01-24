@@ -16,6 +16,8 @@ import Network.Wai
 import Network.Wai.Handler.Warp
 import Servant
 
+import Control.Monad.IO.Class ( liftIO )
+
 import qualified Data.Map.Strict as M
 import Data.Text (Text)
 
@@ -24,6 +26,7 @@ import qualified Lucid as L
 import Network.HTTP.Media ((//), (/:))
 
 import Env ( Env (..)
+           , refreshEnv
            , initEnv
            )
 
@@ -47,15 +50,19 @@ instance MimeRender HTML RawHtml where
 type API0 = "album"  :> Capture "aid" Int :> Get '[HTML] RawHtml
 type API1 = "albums" :> Capture "list" Text :> Get '[HTML] RawHtml
 -- type API2 = "albumj" :> Get '[JSON] [Album]
-type API = API0 :<|> API1
-  -- :<|> API2 
-  :<|> Raw
+type API3 = "providers" :> Capture "token" Text :> Get '[HTML] RawHtml
+type API = API0 
+      :<|> API1
+   -- :<|> API2
+      :<|> API3
+      :<|> Raw
 api :: Proxy API
 api = Proxy
 
 server :: Env -> Server API
 server env = serveAlbum :<|> serveAlbums
-  -- :<|> serveJSON 
+  -- :<|> serveJSON
+  :<|> serveProviders
   :<|> serveDirectoryFileServer "static"
   where serveAlbum :: Int -> Handler RawHtml
         serveAlbum aid = do
@@ -67,9 +74,13 @@ server env = serveAlbum :<|> serveAlbums
         -- serveJSON :: Server API2
         -- serveJSON = do
         --   return $ M.elems ( albums env )
+        serveProviders :: Text -> Handler RawHtml
+        serveProviders token = do
+          _ <- liftIO ( refreshEnv env token )
+          return $ RawHtml $ L.renderBS ( renderAlbums env "Listened" "Default" )
 
 startApp :: IO ()
-startApp = initEnv >>= ( run 8080 . app )
+startApp = initEnv Nothing Nothing >>= ( run 8080 . app )
 
 app :: Env -> Application
 app env = serve api $ server env

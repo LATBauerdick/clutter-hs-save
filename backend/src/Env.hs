@@ -6,14 +6,16 @@
 
 module Env
     ( Env (..)
+    , DToken
     , testEnv
+    , refreshEnv
     , initEnv
     ) where
 import Prelude hiding ( (++) )
 
-import Data.Maybe ( mapMaybe, fromMaybe )
+import Data.Maybe ( fromMaybe )
 import Data.Vector ( Vector (..), (++) )
-import qualified Data.Vector as V ( fromList, toList, empty, singleton, map)
+import qualified Data.Vector as V ( fromList, toList, empty )
 import Data.List (sortBy)
 import Data.Ord (comparing)
 import Data.Text (Text)
@@ -25,6 +27,8 @@ import qualified Data.Map.Strict as M
 import Provider ( Tidal (..)
                 , Discogs (..)
                 , Album (..)
+                , DAuth (..)
+                , DToken (..)
                 , readAlbums
                 , readLists
                 )
@@ -32,12 +36,17 @@ import Provider ( Tidal (..)
 data Env
   = Env
   { albums      :: M.Map Int Album
-  , lists       :: Vector Text
+  , listNames   :: Vector Text
+  , lists       :: M.Map Text (Vector Int)
   , getList     :: Text -> Vector Int
   , sorts       :: Vector Text
   , getSort     :: Text -> ( Vector Int -> Vector Int )
   , url         :: Text
+  , token       :: DToken
   }
+
+refreshEnv :: Env -> Text -> IO Env
+refreshEnv env t = initEnv (Just env) (Just (DToken t))
 
 testEnv :: Env
 testEnv = Env { albums = M.singleton 1 testAlbum, url = "http://localhost:8080/" }
@@ -50,53 +59,75 @@ testAlbum = Album 123123
                   "https://img.discogs.com/cOcoe8orblZUZlh_L68I8Kx3lnA=/fit-in/600x617/filters:strip_icc():format(jpeg):mode_rgb():quality(90)/discogs-images/R-6420873-1603309252-4033.jpeg.jpg"
                   "2021-01-01T01:23:01-07:00" "Pop" ( const "xxx" )
 
-initEnv :: IO Env
-initEnv = do
-  let am0 = M.singleton 1 testAlbum
-  vda <- readAlbums $ Discogs "data/dall.json"
-  vta <- readAlbums $ Tidal "data/tall.json"
-  let vaa :: Vector Album
-      vaa = vda ++ vta
+initEnv :: Maybe Env -> Maybe DToken -> IO Env
+initEnv _ Nothing = envFromFiles
+initEnv Nothing _ = envFromFiles -- prelim: always read from files
+initEnv (Just e) (Just dtok) = return e -- do nothing yet
 
-  let myAlbumMap = M.fromList $ map (\ a -> (albumID a, a)) (V.toList vaa)
+envFromFiles :: IO Env
+envFromFiles = do
 
--- define sort functions
-  let asi :: Vector Int -> [ ( Int, Maybe Album ) ]
-      asi aids =  map ( \aid -> ( aid, M.lookup aid myAlbumMap ) ) $ V.toList aids
-  let sDef :: Vector Int -> Vector Int
-      sDef l = l
-  let sAdded :: Vector Int -> Vector Int
-      sAdded env = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumAdded) b a ) ( asi env ))
-  let sArtist :: Vector Int -> Vector Int
-      sArtist env = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumArtist) a b ) ( asi env ))
-  let sTitle :: Vector Int -> Vector Int
-      sTitle env = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumTitle) a b ) ( asi env ))
-  let sfs :: M.Map Text (Vector Int -> Vector Int) -- sort functions
+-- define sort functions and map to names
+  let asi :: Env -> Vector Int -> [ ( Int, Maybe Album ) ]
+      asi env aids =  map ( \aid -> ( aid, M.lookup aid ( albums env ) ) ) $ V.toList aids
+  let sDef :: Env -> Vector Int -> Vector Int
+      sDef _ l = l
+  let sAdded :: Env -> Vector Int -> Vector Int
+      sAdded env aids = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumAdded) b a ) ( asi env aids ))
+  let sArtist :: Env -> Vector Int -> Vector Int
+      sArtist env aids = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumArtist) a b ) ( asi env aids))
+  let sTitle :: Env -> Vector Int -> Vector Int
+      sTitle env aids = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumTitle) a b ) ( asi env aids))
+  let sfs :: M.Map Text (Env -> Vector Int -> Vector Int) -- sort functions
       sfs = M.fromList [ ( "Default", sDef    )
                        , ( "Artist",  sArtist )
                        , ( "Title",   sTitle  )
                        , ( "Added",   sAdded  )
                        ]
-      getSf :: Text -> (Vector Int -> Vector Int)
-      getSf t = fromMaybe sDef (M.lookup t sfs)
-      sns = V.fromList $ M.keys sfs
 
+      getSort :: Env -> Text -> (Vector Int -> Vector Int)
+      getSort env t = fromMaybe sDef (M.lookup t sfs) env
 
+      sorts :: Vector Text
+      sorts = V.fromList $ M.keys sfs
+
+-- return sorted list of albumIDs
+  let sls :: Env -> Vector Album -> Text -> ( Text, Vector Int )
+      sls env as n = ( n,  sAdded env ( albumID <$> as ) )
+
+  let getList :: Env -> Text -> Vector Int
+      getList env ln = fromMaybe V.empty (M.lookup ln (lists env))
+
+      listNames :: Env -> Vector Text
+      listNames env = V.fromList $ M.keys (lists env)
+
+-- get Map ow all albums from Providers
+  vda <- readAlbums $ Discogs "data/dall.json"
+  vta <- readAlbums $ Tidal "data/tall.json"
 -- read the map of Discogs lists and folders
-  lm <- readLists
+  lm <- readLists $ Discogs "data/"
+
+  let albums :: M.Map Int Album
+      albums = M.fromList $
+        (\ a -> (albumID a, a)) <$> V.toList ( vda ++ vta )
+
 -- add the Tidal, Discogs, and the All lists "by hand"
 -- and sort them ("Default") for Date Added
-  let ds = sAdded $ albumID <$> vda -- getList "All"
-      ts = sAdded $ albumID <$> vta
-      as = sAdded $ albumID <$> vaa
 
-  let myLists = M.union ( M.fromList  [ ( "Discogs", ds ), ( "Tidal", ts ), ("All", as ) ] ) lm
-      getList :: Text -> Vector Int
-      getList ln = fromMaybe V.empty (M.lookup ln myLists )
-      lists :: Vector Text
-      lists = V.fromList $ M.keys myLists
+  let lists :: M.Map Text ( Vector Int )
+      lists = M.union ( M.fromList
+                            [ sls env vda "Discogs"
+                            , sls env vta "Tidal"
+                            , sls env (vda ++ vta) "All"
+                            ] ) lm
+                              where env = Env { albums = albums }
 
-
-
-  return $ Env { lists = lists, getList = getList, albums = myAlbumMap, url = "http://localhost:8080/", sorts = sns, getSort = getSf }
+  let this = Env { albums = albums, lists = lists }
+  return this { listNames = listNames this
+              , getList = getList this
+              , getSort = getSort this
+              , sorts = sorts
+              , url = "http://localhost:8080/"
+              , token = undefined
+              }
 
