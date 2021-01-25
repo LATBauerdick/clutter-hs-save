@@ -11,14 +11,15 @@ module Env
     , refreshEnv
     , initEnv
     ) where
-import Prelude hiding ( (++) )
+-- import Prelude hiding ( (++) )
 
 import Data.Maybe ( fromMaybe )
-import Data.Vector ( Vector (..), (++) )
+import Data.Vector ( Vector (..) )
 import qualified Data.Vector as V ( fromList, toList, empty )
 import Data.List (sortBy)
 import Data.Ord (comparing)
 import Data.Text (Text)
+
 
 -- import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as M
@@ -27,10 +28,10 @@ import qualified Data.Map.Strict as M
 import Provider ( Tidal (..)
                 , Discogs (..)
                 , Album (..)
-                , DAuth (..)
                 , DToken (..)
                 , readAlbums
                 , readLists
+                , refreshLists
                 )
 
 data Env
@@ -62,7 +63,10 @@ testAlbum = Album 123123
 initEnv :: Maybe Env -> Maybe DToken -> IO Env
 initEnv _ Nothing = envFromFiles
 initEnv Nothing _ = envFromFiles -- prelim: always read from files
-initEnv (Just e) (Just dtok) = return e -- do nothing yet
+initEnv (Just e) (Just dtok) = do
+  putStrLn $ "token " ++ show dtok
+  refreshLists dtok
+  return e -- do nothing yet
 
 envFromFiles :: IO Env
 envFromFiles = do
@@ -109,7 +113,7 @@ envFromFiles = do
 
   let albums :: M.Map Int Album
       albums = M.fromList $
-        (\ a -> (albumID a, a)) <$> V.toList ( vda ++ vta )
+        (\ a -> (albumID a, a)) <$> V.toList ( vda <> vta )
 
 -- add the Tidal, Discogs, and the All lists "by hand"
 -- and sort them ("Default") for Date Added
@@ -118,7 +122,7 @@ envFromFiles = do
       lists = M.union ( M.fromList
                             [ sls env vda "Discogs"
                             , sls env vta "Tidal"
-                            , sls env (vda ++ vta) "All"
+                            , sls env (vda <> vta) "All"
                             ] ) lm
                               where env = Env { albums = albums }
 

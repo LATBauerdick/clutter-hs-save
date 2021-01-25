@@ -75,7 +75,7 @@ readReleases fn =do
     d <- (eitherDecode <$> BL.readFile fn) :: IO (Either String [Release])
     case d of
       Left err -> putStrLn err
-      Right ds -> print $ drop (length ds-4) ds
+      Right ds -> pure () -- print $ drop (length ds-4) ds
     return $ fromRight [] d
 
 

@@ -34,6 +34,13 @@ dependencies:
 - text
 - raw-strings-qq
 - mtl
+- http-conduit
+- http-types
+- http-client
+- http-client-tls
+- authenticate-oauth
+- time
+- yaml
 
 library:
   source-dirs: src

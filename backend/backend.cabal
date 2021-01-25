@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e8be6fb7e94fa59b3872be9b68a80be734cf8dd4e3185eb27105f8fdf554a71c
+-- hash: 59c8f5b257e01383f333644f6c612f4f7686318456013f307446e3574c76cc4c
 
 name:           backend
 version:        0.1.0.0
@@ -30,6 +30,7 @@ library
   exposed-modules:
       Env
       FromJSON
+      FromWeb
       Lib
       Provider
       Render
@@ -39,20 +40,27 @@ library
       src
   build-depends:
       aeson
+    , authenticate-oauth
     , base >=4.7 && <5
     , bytestring
     , cassava
     , containers
+    , http-client
+    , http-client-tls
+    , http-conduit
     , http-media
+    , http-types
     , lucid
     , mtl
     , raw-strings-qq
     , servant-server
     , text
+    , time
     , utf8-string
     , vector
     , wai
     , warp
+    , yaml
   default-language: Haskell2010
 
 executable backend-exe
@@ -64,21 +72,28 @@ executable backend-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , authenticate-oauth
     , backend
     , base
     , bytestring
     , cassava
     , containers
+    , http-client
+    , http-client-tls
+    , http-conduit
     , http-media
+    , http-types
     , lucid
     , mtl
     , raw-strings-qq
     , servant-server
     , text
+    , time
     , utf8-string
     , vector
     , wai
     , warp
+    , yaml
   default-language: Haskell2010
 
 test-suite backend-test
@@ -91,6 +106,7 @@ test-suite backend-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , authenticate-oauth
     , backend
     , base
     , bytestring
@@ -99,14 +115,20 @@ test-suite backend-test
     , hspec
     , hspec-wai
     , hspec-wai-json
+    , http-client
+    , http-client-tls
+    , http-conduit
     , http-media
+    , http-types
     , lucid
     , mtl
     , raw-strings-qq
     , servant-server
     , text
+    , time
     , utf8-string
     , vector
     , wai
     , warp
+    , yaml
   default-language: Haskell2010
