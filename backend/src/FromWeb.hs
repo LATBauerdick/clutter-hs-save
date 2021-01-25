@@ -13,6 +13,8 @@ import qualified Data.Vector as V (fromList, toList, take )
 import qualified Data.Foldable as F ( for_  )
 import Data.Either (fromRight)
 
+import System.Process ( system )
+
 import Network.HTTP.Client -- (defaultManagerSettings, newManager, httpLbs, get)
 import Network.HTTP.Client.TLS ( tlsManagerSettings )
 import Network.HTTP.Types.Status (statusCode)
@@ -49,14 +51,16 @@ instance FromJSON WPagination
 wFolderNameIds :: String -> IO (Either String (Vector WList))
 wFolderNameIds token = do
   let name = "LATB"
-      reqURL = "https://api.discogs.com/users/" ++ name ++ "/folders?token=" ++ token
+      reqURL = "https://api.discogs.com/users/" ++ name ++ "/collection/folders?token=" ++ token
   request <- parseRequest reqURL
   manager <- newManager tlsManagerSettings
   response <- httpLbs request manager
   print $ responseBody response
 
-  putStrLn "------ Trying read folders from file instead"
-  d <- (eitherDecode <$> BL.readFile "data/folders-raw.json") :: IO (Either String WFolders)
+  putStrLn "------ Trying to get folders by curl  instead"
+  putStrLn $ "curl \"" ++ reqURL ++ "\" > data/tmp"
+  _ <- system $ "curl \"" ++ reqURL ++ "\" > data/tmp"
+  d <- (eitherDecode <$> BL.readFile "data/tmp") :: IO (Either String WFolders)
   case d of
     Left err -> putStrLn err
     Right _ -> pure ()
@@ -79,8 +83,10 @@ wListNameIds token = do
                show (statusCode $ responseStatus response)
   print $ responseBody response
 
-  putStrLn "------ Trying read from file instead"
-  d <- (eitherDecode <$> BL.readFile "data/lists-raw.json") :: IO (Either String WLists)
+  putStrLn "------ Trying to get lists by curl  instead"
+  putStrLn $ "curl \"" ++ reqURL ++ "\" > data/tmp"
+  _ <- system $ "curl \"" ++ reqURL ++ "\" > data/tmp"
+  d <- (eitherDecode <$> BL.readFile "data/tmp") :: IO (Either String WLists)
   case d of
     Left err -> putStrLn err
     Right _ -> pure () -- print d

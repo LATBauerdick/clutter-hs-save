@@ -16,7 +16,8 @@ main = do
   a <- readAlbums $ Discogs "data/tall.json"
   _ <- initEnv Nothing Nothing
 
-  tok <- readFile "data/tok.dat"
+  t <- readFile "data/tok.dat"
+  let tok = head . words $ t
 
   let spec :: Spec
       spec = with (return ( app testEnv )) $ do

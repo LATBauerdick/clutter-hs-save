@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 59c8f5b257e01383f333644f6c612f4f7686318456013f307446e3574c76cc4c
+-- hash: d58296a7140be0382185da3f9183c0d02a550d2b14afb3bce65931401b97394b
 
 name:           backend
 version:        0.1.0.0
@@ -52,6 +52,7 @@ library
     , http-types
     , lucid
     , mtl
+    , process
     , raw-strings-qq
     , servant-server
     , text
@@ -85,6 +86,7 @@ executable backend-exe
     , http-types
     , lucid
     , mtl
+    , process
     , raw-strings-qq
     , servant-server
     , text
@@ -122,6 +124,7 @@ test-suite backend-test
     , http-types
     , lucid
     , mtl
+    , process
     , raw-strings-qq
     , servant-server
     , text
