@@ -131,7 +131,7 @@ envFromFiles = do
               , getList = getList this
               , getSort = getSort this
               , sorts = sorts
-              , url = "http://localhost:8080/"
+              , url = "" --  url = "http://localhost:8080/"
               , token = undefined
               }
 

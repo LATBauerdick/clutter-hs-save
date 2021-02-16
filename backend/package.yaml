@@ -21,7 +21,10 @@ description:         Please see the README on GitHub at <https://github.com/LATB
 dependencies:
 - base >= 4.7 && < 5
 - aeson
+- servant
 - servant-server
+- servant-client
+- transformers-either
 - wai
 - warp
 - lucid
