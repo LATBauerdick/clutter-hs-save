@@ -46,8 +46,8 @@ data Env
   , token       :: DToken
   }
 
-refreshEnv :: Env -> Text -> IO Env
-refreshEnv env t = initEnv (Just env) (Just (DToken t))
+refreshEnv :: Env -> Text -> Text -> IO Env
+refreshEnv env tok un = initEnv (Just env) (Just (DToken tok un))
 
 testEnv :: Env
 testEnv = Env { albums = M.singleton 1 testAlbum, url = "http://localhost:8080/" }
