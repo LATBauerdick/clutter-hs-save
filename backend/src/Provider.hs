@@ -3,6 +3,7 @@
 
 module Provider ( Album (..)
                 , Tidal (..)
+                , FW.TidalInfo (..)
                 , Discogs (..)
                 , DToken (..)
                 , readAlbums
@@ -13,6 +14,7 @@ module Provider ( Album (..)
 
 import FromJSON ( Release (..) )
 import qualified FromJSON as FJ ( readReleases, readLists )
+import qualified FromWeb as FW ( readTidalReleases, TidalInfo (..) )
 import FromWeb ( DToken (..), refreshLists )
 
 import Data.Maybe (fromMaybe)
@@ -41,7 +43,7 @@ instance Show Album where
   show a = "Album {albumID = " ++ show (albumID a) ++ ", albumTitle =" ++ show (albumTitle a) ++ "}"
 
 ppp :: Tidal
-ppp = Tidal "xxx"
+ppp = Tidal $ FW.TidalFile "xxx"
 atest :: [ Album ]
 atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-01-01T18:01:42-08:00" "Pop" (const "https://www.tidal.com/album/161314")
          , Album 5253301 (decodeUtf8 "Beethoven - Symphonien Nr. 3 »Eroica« & 4") "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" "Symphonic"  (const "https://www.tidal.com/album/5253301")
@@ -51,17 +53,14 @@ class Provider p where
   readAlbums :: p -> IO (V.Vector Album)
   readLists :: p ->  IO ( M.Map Text ( V.Vector Int ) )
 
-newtype Tidal
-  = Tidal FilePath
+newtype Tidal = Tidal FW.TidalInfo
+getTidal :: Tidal -> FW.TidalInfo
+getTidal (Tidal ti) = ti
+
 newtype Discogs
   = Discogs FilePath
 newtype DDiscogs
   = DDiscogs DToken
-
--- data Prov = Discogs FilePath | Tidal FilePath
--- refreshLists :: DToken -> IO ()
--- refreshLists _ = do
---   return ()
 
 instance Provider Tidal where
   readLists _ = undefined
@@ -83,8 +82,9 @@ instance Provider Tidal where
                           (dadded r)
                           toFolder
                           getAlbumURL
-        fn = "data/tall.json"
-    ds <- FJ.readReleases fn
+    ds <- case getTidal p of
+          FW.TidalFile fn -> FJ.readReleases fn
+          _ -> FW.readTidalReleases (getTidal p)
     let as  = toAlbum <$> ds
 
     putStrLn $ "Total # Tidal Albums: " ++ show (length as)

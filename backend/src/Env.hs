@@ -1,13 +1,13 @@
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-
+{-# OPTIONS_GHC -Wno-missing-fields #-}
 
 
 module Env
     ( Env (..)
     , DToken
-    , testEnv
+    -- , testEnv
     , refreshEnv
     , initEnv
     ) where
@@ -19,13 +19,13 @@ import qualified Data.Vector as V ( fromList, toList, empty )
 import Data.List (sortBy)
 import Data.Ord (comparing)
 import Data.Text (Text)
+import qualified Data.Text as T
 
 
 -- import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as M
--- import qualified Lucid as L
--- import Network.HTTP.Media ((//), (/:))
 import Provider ( Tidal (..)
+                , TidalInfo (..)
                 , Discogs (..)
                 , Album (..)
                 , DToken (..)
@@ -49,8 +49,8 @@ data Env
 refreshEnv :: Env -> Text -> Text -> IO Env
 refreshEnv env tok un = initEnv (Just env) (Just (DToken tok un))
 
-testEnv :: Env
-testEnv = Env { albums = M.singleton 1 testAlbum, url = "http://localhost:8080/" }
+-- testEnv :: Env
+-- testEnv = Env { albums = M.singleton 1 testAlbum, url = "/", listNames = V.empty }
 
 testAlbum :: Album
 testAlbum = Album 123123
@@ -107,7 +107,12 @@ envFromFiles = do
 
 -- get Map ow all albums from Providers
   vda <- readAlbums $ Discogs "data/dall.json"
-  vta <- readAlbums $ Tidal "data/tall.json"
+  -- vta <- readAlbums $ Tidal $ TidalFile "data/tall.json"
+  t <- readFile "data/tok.dat"
+  let userId = read ( words t !! 2 ) :: Int
+      sessionId = T.pack $ words t !! 3
+      countryCode = T.pack $ words t !! 4
+  vta <- readAlbums $ Tidal $ TidalSession userId sessionId countryCode
 -- read the map of Discogs lists and folders
   lm <- readLists $ Discogs "data/"
 
@@ -131,7 +136,7 @@ envFromFiles = do
               , getList = getList this
               , getSort = getSort this
               , sorts = sorts
-              , url = "" --  url = "http://localhost:8080/"
+              , url = "/"
               , token = undefined
               }
 

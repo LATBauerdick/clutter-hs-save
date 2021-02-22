@@ -50,11 +50,13 @@ instance MimeRender HTML RawHtml where
 type API0 = "album"  :> Capture "aid" Int :> Get '[HTML] RawHtml
 type API1 = "albums" :> Capture "list" Text :> Get '[HTML] RawHtml
 -- type API2 = "albumj" :> Get '[JSON] [Album]
-type API3 = "providers" :> Capture "token" Text :> Capture "username" Text :> Get '[HTML] RawHtml
+type API3 = "provider" :> "discogs" :> Capture "token" Text :> Capture "username" Text :> Get '[HTML] RawHtml
+type API4 = "provider" :> "tidal" :> Capture "token" Text :> Capture "username" Text :> Get '[HTML] RawHtml
 type API = API0 
       :<|> API1
    -- :<|> API2
       :<|> API3
+      :<|> API4
       :<|> Raw
 api :: Proxy API
 api = Proxy
@@ -62,7 +64,8 @@ api = Proxy
 server :: Env -> Server API
 server env = serveAlbum :<|> serveAlbums
   -- :<|> serveJSON
-  :<|> serveProviders
+  :<|> serveDiscogs
+  :<|> serveTidal
   :<|> serveDirectoryFileServer "static"
   where serveAlbum :: Int -> Handler RawHtml
         serveAlbum aid = do
@@ -74,8 +77,12 @@ server env = serveAlbum :<|> serveAlbums
         -- serveJSON :: Server API2
         -- serveJSON = do
         --   return $ M.elems ( albums env )
-        serveProviders :: Text -> Text -> Handler RawHtml
-        serveProviders token username = do
+        serveDiscogs :: Text -> Text -> Handler RawHtml
+        serveDiscogs token username = do
+          _ <- liftIO ( refreshEnv env token username )
+          return $ RawHtml $ L.renderBS ( renderAlbums env "Listened" "Default" )
+        serveTidal :: Text -> Text -> Handler RawHtml
+        serveTidal token username = do
           _ <- liftIO ( refreshEnv env token username )
           return $ RawHtml $ L.renderBS ( renderAlbums env "Listened" "Default" )
 

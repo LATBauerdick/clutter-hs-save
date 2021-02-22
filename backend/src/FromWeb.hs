@@ -1,10 +1,16 @@
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+--{-# LANGUAGE TypeApplications #-}
 
 module FromWeb  ( refreshLists
-                , DToken (..)
-                ) where
+                    , readTidalReleases
+                    , TidalInfo (..)
+                    , DToken (..)
+                    ) where
+
+import qualified FromJSON as FJ ( Release (..) )
 
 -- import Data.ByteString (ByteString)
 -- import qualified Data.ByteString.Char8 as S8
@@ -13,7 +19,7 @@ module FromWeb  ( refreshLists
 import qualified Data.Map as M
 import Data.Vector ( Vector )
 import qualified Data.Vector as V (fromList, toList, take )
-import qualified Data.Foldable as F ( for_  )
+import qualified Data.Foldable as F ( for_, traverse_  )
 import Data.Either (fromRight)
 
 -- import System.Process ( callCommand )
@@ -82,25 +88,29 @@ type UserName = Text
 type UserAgent = Text
 
 type DiscogsAPI =
+-- GET release
        "releases/249504"
-       :> QueryParam "token" Token
+       :> Header "Authorization: Discogs token" Token
        :> Header "User-Agent" UserAgent
        :> Get '[JSON] WTest
+-- GET folders
   :<|> "users"
        :> Capture "name" UserName
        :> "collection/folders"
-       :> QueryParam "token" Token
+       :> Header "Authorization: Discogs token" Token
        :> Header "User-Agent" UserAgent
        :> Get '[JSON] WFolders
+-- GET lists
   :<|> "users"
        :> Capture "name" UserName
        :> "lists"
-       :> QueryParam "token" Token
+       :> Header "Authorization: Discogs token" Token
        :> Header "User-Agent" UserAgent
        :> Get '[JSON] WLists
+-- Get list items
   :<|> "lists"
        :> Capture "listid" Int
-       :> QueryParam "token" Token
+       :> Header "Authorization: Discogs token" Token
        :> Header "User-Agent" UserAgent
        :> Get '[JSON] WLItems
 
@@ -125,24 +135,133 @@ discogsAPI = Proxy
 
 getTest :<|> getFolders :<|> getLists :<|> getList = client discogsAPI
 
+data WTidal = WTidal
+                { limit :: Int
+                , totalNumberOfItems :: Int
+                , items :: [WTItem]
+                } deriving (Show, Generic)
+data WTItem = WTItem
+                { created :: !Text
+                , item :: WTIItem
+                } deriving (Show, Generic)
+data WTIItem = WTIItem
+                { id :: Int
+                , title :: !Text
+                , releaseDate :: !Text
+                , url :: !Text
+                , cover :: !Text
+                , artists :: [WTArtist]
+                } deriving (Show, Generic)
+data WTArtist = WTArtist
+                { id :: Int
+                , name :: !Text
+                } deriving (Show, Generic)
+instance FromJSON WTidal
+instance FromJSON WTItem
+instance FromJSON WTIItem
+instance FromJSON WTArtist
+
+
+type TidalUserId = Int
+type TidalSessionId = Text
+type TidalCountryCode = Text
+type TidalLimit = Int
+type TidalAPI =
+-- GET Tidal favorites
+-- https://api.tidalhifi.com/v1/users/<userId>/favorites/albums?sessionId=<session-id>&countryCode=US&limit=2999
+       "users"
+       :> Capture "uid" TidalUserId
+       :> "favorites" :> "albums"
+       :> QueryParam "sessionId" TidalSessionId
+       :> QueryParam "countryCode" TidalCountryCode
+       :> QueryParam "limit" TidalLimit
+       :> Header "User-Agent" UserAgent
+       :> Get '[JSON] WTidal
+tidalAPI :: Proxy TidalAPI
+tidalAPI = Proxy
+getTidal :: TidalUserId
+         -> Maybe TidalSessionId
+         -> Maybe TidalCountryCode
+         -> Maybe TidalLimit
+         -> Maybe UserAgent
+         -> ClientM WTidal
+getTidal = client tidalAPI
+
+data TEnv = TEnv { userId :: TidalUserId
+                 , sessionId :: TidalSessionId
+                 , countryCode :: TidalCountryCode
+                 , tlimit :: TidalLimit
+                 , tclient :: ClientEnv
+                 }
+data TidalInfo = TidalFile FilePath | TidalSession Int Text Text
+readTidalReleases :: TidalInfo -> IO [FJ.Release]
+readTidalReleases ti = do
+  manager <- newManager tlsManagerSettings  -- defaultManagerSettings
+  let TidalSession uid sid cc = ti
+      tenv :: TEnv
+      tenv = TEnv { userId = uid
+                  , sessionId = sid
+                  , countryCode = cc
+                  , tlimit = 9
+                  , tclient = mkClientEnv manager ( BaseUrl Https "api.tidalhifi.com" 443 "v1" )
+                  }
+      tquery :: ClientM WTidal
+      tquery  = getTidal (userId tenv)
+                           ( Just (sessionId tenv) )
+                           ( Just (countryCode tenv) )
+                           ( Just (tlimit tenv) )
+                           ( Just "ClutterApp/0.1" )
+  res <- runClientM tquery ( tclient tenv )
+  case res of
+    Left err -> putStrLn $ "Error: " ++ show err
+    Right _ -> pure ()
+  let getReleases :: WTidal -> [FJ.Release]
+      getReleases t = rs where
+        WTidal {items=tis} = t
+        getRelease :: WTItem -> FJ.Release
+        getRelease ti = r where
+          WTItem { created=tcreated, item=tii } = ti
+          WTIItem { id = tid
+                  , title = ttitle
+                  , releaseDate = treleased
+                  , url  = turl
+                  , cover = tcover
+                  , artists = tartists
+                  } = tii
+          as = (\ WTArtist { name=n } -> n ) <$> tartists
+          r = FJ.Release  { daid      = tid
+                          , dtitle    = ttitle
+                          , dartists  = as
+                          , dreleased = treleased
+                          , dadded    = tcreated
+                          , dcover    = tcover
+                          , dfolder   = 999
+                            }
+        rs = getRelease <$> tis
+
+      rs = case res of
+        Left _ -> []
+        Right t -> getReleases t
+  putStrLn "-----------------Getting Favorite Albums from Tidal-----"
+  F.for_ rs (\r -> print $
+      show (FJ.dtitle r) <> show (FJ.dartists r))
+
+  pure rs
+
 data DToken = DToken Token UserName deriving (Show)
-
-queries :: DToken -> ClientM ( WFolders, WLists )
-queries (DToken tok un) = do
-  efs <- getFolders un ( Just tok ) ( Just "ClutterApp/0.1" )
-  els <- getLists   un ( Just tok ) ( Just "ClutterApp/0.1" )
-  return ( efs, els )
-
-data DEnv = DEnv { dtoken :: DToken
+data DEnv = DEnv { token :: Token
+                 , username :: UserName
                  , dclient :: ClientEnv
                  }
 
+
 refreshLists :: DToken -> IO ( M.Map Text ( Vector Int ) )
-refreshLists dt = do
-  manager' <- newManager tlsManagerSettings  -- defaultManagerSettings
+refreshLists (DToken tok un) = do
+  manager <- newManager tlsManagerSettings  -- defaultManagerSettings
   let denv :: DEnv
-      denv = DEnv { dtoken = dt
-                  , dclient = mkClientEnv manager' ( BaseUrl Https "api.discogs.com" 443 [] )
+      denv = DEnv { token = tok
+                  , username = un
+                  , dclient = mkClientEnv manager ( BaseUrl Https "api.discogs.com" 443 [] )
                   }
 -- for each Discog list, read the lists of album ids from JSON
 -- we're treating Discog folders like lists,
@@ -150,18 +269,21 @@ refreshLists dt = do
 -- NB: the JSON required to extract album id info ir different between them
   let readListAids :: WList -> IO ( Text, Vector Int )
       readListAids ( WList i t ) = do
-        res <- runClientM ( queries' (dtoken denv) i )  (dclient denv)
+        res <- runClientM ( getList i ( Just ( token denv ) ) ( Just "ClutterApp/0.1" ))
+                          ( dclient denv )
         case res of
           Left err -> putStrLn $ "Error: " ++ show err
-          Right _ -> pure ()
-          -- Right ( lis ) -> do
-          --   let ds = V.fromList ( wlitems lis )
-          --   F.for_ ds print
-        let is = V.fromList $ wlitems ( fromRight (WLItems { wlitems = [] }) res )
-            aids  = wlaid <$> is
+          Right ls -> -- pure ()
+                      F.traverse_ print $ take 5 . wlitems $ ls
+        let aids  = wlaid <$> V.fromList ( wlitems ( fromRight (WLItems []) res ))
         return ( t, aids )
 -- get list and folder names and ids
-  res <- runClientM ( queries (dtoken denv) ) (dclient denv)
+  let queries :: DEnv -> ClientM ( WFolders, WLists )
+      queries (DEnv tok un _) = do
+        efs <- getFolders un ( Just tok ) ( Just "ClutterApp/0.1" )
+        els <- getLists   un ( Just tok ) ( Just "ClutterApp/0.1" )
+        return ( efs, els )
+  res <- runClientM ( queries denv ) ( dclient denv )
   case res of
     Left err -> putStrLn $ "Error: " ++ show err
     Right ( fs, ls ) -> do
@@ -169,47 +291,8 @@ refreshLists dt = do
       F.for_ ds print
       let ds = V.fromList ( lists ls )
       F.for_ ds print
+
   (t, aids) <- readListAids ( WList 540434 "Listened" )
-  let lm :: M.Map Text ( Vector Int )
-      lm = M.singleton "Listened" aids
-
---   res <- runClientM ( queries' (dtoken denv) 540434 )  (dclient denv)
---   case res of
---     Left err -> putStrLn $ "Error: " ++ show err
---     Right ( lis ) -> do
---       let ds = V.fromList ( wlitems lis )
---       F.for_ ds print
---   let is = V.fromList $ wlitems ( fromRight (WLItems { wlitems = [] }) res )
---       aids  = wlaid <$> is
---       lm :: M.Map Text ( Vector Int )
---       lm = M.singleton "Listened" aids
-
-  return lm
-
-queries' :: DToken -> Int -> ClientM ( WLItems )
-queries' (DToken tok _) lid = do
-  d <- getList lid ( Just tok ) ( Just "ClutterApp/0.1" )
-  return d
-
--- for each Discog list, read the lists of album ids from JSON
--- we're treating Discog folders like lists,
--- also assuming that their IDs arf unique
--- NB: the JSON required to extract album id info ir different between them
--- readWAids :: Int -> Token -> ClientM ( Vector Int )
--- readWAids lid tok = do
---         d <- getList lid ( Just tok ) ( Just "ClutterApp/0.1" )
---         case d of
---           Left err -> putStrLn err
---           Right _ -> print d
---         let ds = V.fromList $ fromRight [] (wlitems d)
---             aids  = wlaid <$> ds
---         return aids
-
-
-
-
-
--- curl "https://api.discogs.com/lists/540434" -H "Authorization: Discogs token=<token>"   > data/l540434-raw.json
-
+  return ( M.singleton t aids )
 
 
