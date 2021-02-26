@@ -4,7 +4,7 @@ github:              "LATBauerdick/backend"
 license:             BSD3
 author:              "LATBauerdick"
 maintainer:          "gitbub@bauerdick.org"
-copyright:           "2020 LATBauerdick"
+copyright:           "2021 LATBauerdick"
 
 extra-source-files:
 - README.md

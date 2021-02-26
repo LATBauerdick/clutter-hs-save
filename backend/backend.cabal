@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0f5bb245ad85bd5d987bbc8b4a94037e5d64530c90d6f2b319a926234ec58d85
+-- hash: 2acad5e59bef0a0ea1e1740019ca3bf3150f52107f8ff317b66420cc5bbbbe16
 
 name:           backend
 version:        0.1.0.0
@@ -15,7 +15,7 @@ homepage:       https://github.com/LATBauerdick/backend#readme
 bug-reports:    https://github.com/LATBauerdick/backend/issues
 author:         LATBauerdick
 maintainer:     gitbub@bauerdick.org
-copyright:      2020 LATBauerdick
+copyright:      2021 LATBauerdick
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -29,8 +29,9 @@ source-repository head
 library
   exposed-modules:
       Env
+      FromDiscogs
       FromJSON
-      FromWeb
+      FromTidal
       Lib
       Provider
       Render

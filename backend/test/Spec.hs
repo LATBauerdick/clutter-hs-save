@@ -23,8 +23,8 @@ main = do
   let userId = read ( words t !! 2 ) :: Int
       sessionId = T.pack $ words t !! 3
       countryCode = T.pack $ words t !! 4
-  vta <- readAlbums $ Tidal $ TidalSession userId sessionId countryCode
-  -- testEnv <- initEnv Nothing Nothing
+  -- vta <- readAlbums $ Tidal $ TidalSession userId sessionId countryCode
+  testEnv <- initEnv Nothing Nothing
 
   let spec :: Spec
       spec = with (return ( app testEnv )) $ do

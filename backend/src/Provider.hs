@@ -3,23 +3,34 @@
 
 module Provider ( Album (..)
                 , Tidal (..)
-                , FW.TidalInfo (..)
+                , FT.TidalInfo (..)
                 , Discogs (..)
+                , FD.DiscogsInfo (..)
+                , readListAids
                 , DToken (..)
                 , readAlbums
                 , readLists
+                , readFolders
                 , refreshLists
                 , atest
                 ) where
 
 import FromJSON ( Release (..) )
 import qualified FromJSON as FJ ( readReleases, readLists )
-import qualified FromWeb as FW ( readTidalReleases, TidalInfo (..) )
-import FromWeb ( DToken (..), refreshLists )
-
+import qualified FromTidal as FT ( readTidalReleases, TidalInfo (..) )
+import qualified FromDiscogs as FD ( readDiscogsReleases
+                                   , readDiscogsLists
+                                   , readListAids
+                                   , readDiscogsFolders
+                                   , DiscogsInfo (..)
+                                   )
+import FromDiscogs ( DToken (..)
+                   , refreshLists
+                   )
 import Data.Maybe (fromMaybe)
 import Data.Text.Encoding ( decodeUtf8 )
 import qualified Data.Map.Strict as M
+import Data.Vector ( Vector )
 import qualified Data.Vector as V
 
 import Data.Text (Text)
@@ -34,7 +45,7 @@ data Album
   , albumReleased :: Text
   , albumCover    :: Text
   , albumAdded    :: Text
-  , albumFolder   :: Text
+  , albumFolder   :: Int
   , albumURL      :: Album -> Text
   }
 instance Eq Album where
@@ -43,24 +54,23 @@ instance Show Album where
   show a = "Album {albumID = " ++ show (albumID a) ++ ", albumTitle =" ++ show (albumTitle a) ++ "}"
 
 ppp :: Tidal
-ppp = Tidal $ FW.TidalFile "xxx"
+ppp = Tidal $ FT.TidalFile "xxx"
 atest :: [ Album ]
-atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-01-01T18:01:42-08:00" "Pop" (const "https://www.tidal.com/album/161314")
-         , Album 5253301 (decodeUtf8 "Beethoven - Symphonien Nr. 3 »Eroica« & 4") "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" "Symphonic"  (const "https://www.tidal.com/album/5253301")
+atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-01-01T18:01:42-08:00" 1349997 (const "https://www.tidal.com/album/161314")
+         , Album 5253301 (decodeUtf8 "Beethoven - Symphonien Nr. 3 »Eroica« & 4") "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" 1351871  (const "https://www.tidal.com/album/5253301")
          ]
 
 class Provider p where
-  readAlbums :: p -> IO (V.Vector Album)
-  readLists :: p ->  IO ( M.Map Text ( V.Vector Int ) )
+  readAlbums :: p -> IO (Vector Album)
+  readLists :: p ->  IO ( M.Map Text (Int, Vector Int ) )
 
-newtype Tidal = Tidal FW.TidalInfo
-getTidal :: Tidal -> FW.TidalInfo
+newtype Tidal = Tidal FT.TidalInfo
+getTidal :: Tidal -> FT.TidalInfo
 getTidal (Tidal ti) = ti
 
-newtype Discogs
-  = Discogs FilePath
-newtype DDiscogs
-  = DDiscogs DToken
+newtype Discogs = Discogs FD.DiscogsInfo
+getDiscogs :: Discogs -> FD.DiscogsInfo
+getDiscogs (Discogs di) = di
 
 instance Provider Tidal where
   readLists _ = undefined
@@ -70,7 +80,7 @@ instance Provider Tidal where
               T.pack "https://resources.tidal.com/images/"
             , T.intercalate "/" $ T.splitOn "-" (dcover r)
             , T.pack "/320x320.jpg" ]
-        toFolder = "Tidal"
+        toFolder = 999999
         getAlbumURL :: Album -> Text
         getAlbumURL a = T.pack $
             "https://www.tidal.com/album/" ++ show ( albumID a )
@@ -83,29 +93,24 @@ instance Provider Tidal where
                           toFolder
                           getAlbumURL
     ds <- case getTidal p of
-          FW.TidalFile fn -> FJ.readReleases fn
-          _ -> FW.readTidalReleases (getTidal p)
+          FT.TidalFile fn -> FJ.readReleases fn
+          _ -> FT.readTidalReleases (getTidal p)
     let as  = toAlbum <$> ds
 
     putStrLn $ "Total # Tidal Albums: " ++ show (length as)
-    print $ drop (length as - 4) as
+    -- print $ drop (length as - 4) as
 
     return $ V.fromList as
 
-instance Provider DDiscogs where
-  -- toCoverURL = undefined
-  -- toFolder = undefined
-  -- toAlbum = undefined
-  -- getAlbumURL = undefined
-  readAlbums = undefined
-  readLists = undefined
 
 instance Provider Discogs where
-  readLists _ = FJ.readLists
+  readLists p = case getDiscogs p of
+                  FD.DiscogsFile fn -> FJ.readLists
+                  _ -> FD.readDiscogsLists (getDiscogs p)
   readAlbums p = do
     let
         toCoverURL r = dcover r
-        toFolder r = fromMaybe "Nothing" $ M.lookup (dfolder r) fm
+        toFolder r = dfolder r -- fromMaybe "Nothing" $ M.lookup (dfolder r) fm
           where fm :: M.Map Int Text
                 fm = M.fromList [ ( 1349997, "Pop" )
                                 , ( 1351871, "Symphonic" )
@@ -128,15 +133,27 @@ instance Provider Discogs where
                           getAlbumURL
         fn = "data/dall.json"
 
-    ds <- FJ.readReleases fn
+    ds <- case getDiscogs p of
+          FD.DiscogsFile fn -> FJ.readReleases fn
+          _ -> FD.readDiscogsReleases (getDiscogs p)
+
     let as  = toAlbum <$> ds
 
     putStrLn $ "Total # Discogs Albums: " ++ show (length as)
-    print $ drop ( length as - 4 ) as
+    -- print $ drop ( length as - 4 ) as
 
     return $ V.fromList as
 
 
+readListAids :: Discogs -> Int -> IO ( Vector Int )
+readListAids p i = case getDiscogs p of
+                     FD.DiscogsFile _ -> undefined
+                     _ -> FD.readListAids (getDiscogs p) i
+
+readFolders :: Discogs -> IO ( M.Map Text Int )
+readFolders p = case getDiscogs p of
+                  FD.DiscogsFile fn -> undefined
+                  _ -> FD.readDiscogsFolders (getDiscogs p)
 -- items[].item.type
 -- "SINGLE"
 -- "ALBUM"

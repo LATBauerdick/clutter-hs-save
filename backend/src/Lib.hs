@@ -25,6 +25,8 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Lucid as L
 import Network.HTTP.Media ((//), (/:))
 
+import qualified Data.Vector as V ( Vector, empty, null, length, take, singleton )
+
 import Env ( Env (..)
            , refreshEnv
            , initEnv
@@ -71,20 +73,27 @@ server env = serveAlbum :<|> serveAlbums
         serveAlbum aid = do
           let mAlbum = M.lookup aid ( albums env )
           return $ RawHtml $ L.renderBS (renderAlbum mAlbum)
+
         serveAlbums :: Text -> Handler RawHtml
         serveAlbums list = do
-          return $ RawHtml $ L.renderBS ( renderAlbums env list "Default" )
+          aids <- liftIO ( getList env list )
+          let sn :: Text; sn = "Default" -- sort name should becom optional QueryParam
+          let sort = getSort env sn
+          return $ RawHtml
+                $ L.renderBS ( renderAlbums env (sort aids) list sn )
         -- serveJSON :: Server API2
         -- serveJSON = do
         --   return $ M.elems ( albums env )
+
         serveDiscogs :: Text -> Text -> Handler RawHtml
         serveDiscogs token username = do
           _ <- liftIO ( refreshEnv env token username )
-          return $ RawHtml $ L.renderBS ( renderAlbums env "Listened" "Default" )
+          return $ RawHtml $ L.renderBS ( renderAlbums env V.empty "Listened" "Default" )
+
         serveTidal :: Text -> Text -> Handler RawHtml
         serveTidal token username = do
           _ <- liftIO ( refreshEnv env token username )
-          return $ RawHtml $ L.renderBS ( renderAlbums env "Listened" "Default" )
+          return $ RawHtml $ L.renderBS ( renderAlbums env V.empty "Listened" "Default" )
 
 startApp :: IO ()
 startApp = initEnv Nothing Nothing >>= ( run 8080 . app )

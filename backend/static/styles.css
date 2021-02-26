@@ -94,7 +94,7 @@ p.album-artist {
 }
 
 .dropbtn {
-  background-color: #4CAF50;
+  background-color: #ff7000 /* #4CAF50*/;
   color: white;
   padding: 16px;
   font-size: 16px;
@@ -123,13 +123,13 @@ p.album-artist {
   display: block;
 }
 
-.dropdown-content a:hover {background-color: #f1f1f1}
+.dropdown-content a:hover {background-color: #f9c87c /* #f1f1f1 */}
 
 .dropdown:hover .dropdown-content {
   display: block;
 }
 
 .dropdown:hover .dropbtn {
-  background-color: #3e8e41;
+  background-color: #f97432 /* #3e8e41 */;
 }
 

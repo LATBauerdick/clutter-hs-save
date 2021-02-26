@@ -79,7 +79,7 @@ readReleases fn =do
     return $ fromRight [] d
 
 
-readLists :: IO ( M.Map Text ( Vector Int ) )
+readLists :: IO ( M.Map Text ( Int, Vector Int ) )
 readLists = do
 
 -- read the names and IDs of my Discogs lists or folders
@@ -97,11 +97,11 @@ readLists = do
 -- we're treating Discog folders like lists,
 -- also assuming that their IDs arf unique
 -- NB: the JSON required to extract album id info ir different between them
-    let readListAids :: DLists -> IO ( Text, Vector Int )
+    let readListAids :: DLists -> IO ( Text, (Int, Vector Int ))
         readListAids ( DLists i t ) = do
           let fn = "data/l" ++ show i ++ ".json"
           aids <- readDAids fn
-          return ( t, aids )
+          return ( t, (i, aids) )
 
     ls <- readNameIds "data/lists.json"
     fs <- readNameIds "data/folders.json"

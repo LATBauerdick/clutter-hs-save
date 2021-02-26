@@ -22,7 +22,7 @@ module Render
 import qualified Data.Map.Strict as M
 import qualified Data.Foldable as F
 import Data.Maybe ( mapMaybe )
-import qualified Data.Vector as V ( toList, fromList )
+import qualified Data.Vector as V ( Vector, toList, fromList )
 
 -- import qualified Data.ByteString.Lazy as BL
 import qualified Lucid as L
@@ -55,8 +55,8 @@ renderAlbum mAlbum = L.html_ $ do
           L.p_ $ L.toHtml ("Year: " ++ T.unpack (albumReleased a))
           L.br_ []
 
-renderAlbums :: Env -> Text -> Text -> L.Html ()
-renderAlbums env ln sn =
+renderAlbums :: Env -> V.Vector Int -> Text -> Text -> L.Html ()
+renderAlbums env aids ln sn =
     -- L.doctype_ "html"
     L.html_ $ do
       renderHead $ "Albums - " <> ln
@@ -87,16 +87,11 @@ renderAlbums env ln sn =
 -- grid of Albums
           L.div_ [L.class_ "albums"] $ do
             L.div_ [L.class_ "row"] $ do
-              renderTNs env ln sn
+              renderTNs env aids
 
-renderTNs :: Env -> Text -> Text -> L.Html ()
-renderTNs env ln sn =
-  F.traverse_ renderAlbumTN albumList where
-    sort = getSort env sn
-    aids = getList env ln
-    albumList = V.fromList $
-        mapMaybe ( `M.lookup` albums env )
-        ( V.toList (sort aids) )
+renderTNs :: Env -> V.Vector Int -> L.Html ()
+renderTNs env aids =
+   F.traverse_ renderAlbumTN $ mapMaybe ( `M.lookup` albums env ) ( V.toList aids)
 
 renderAlbumTN :: Album -> L.Html ()
 renderAlbumTN a =
