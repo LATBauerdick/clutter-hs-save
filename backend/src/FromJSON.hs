@@ -5,6 +5,7 @@
 module FromJSON ( Release (..)
                 , readReleases
                 , readLists
+                , readFolders
                 ) where
 
 import qualified Data.ByteString.Lazy as BL
@@ -90,7 +91,7 @@ readLists = do
             Left err -> putStrLn err
             Right _ -> pure () -- print ds
           let ds = V.fromList $ fromRight [] d
-          F.for_ ds print
+          -- F.for_ ds print
           return ds
 
 -- for each Discog list, read the lists of album ids from JSON
@@ -108,6 +109,25 @@ readLists = do
     lm <- traverse readListAids ( ls <> fs )
 
     return $ M.fromList ( V.toList lm )
+
+-- read the names and IDs of my Discogs lists or folders
+readFolders :: IO ( M.Map Text Int )
+readFolders = do
+    let readNameIds :: FilePath -> IO ( Vector DLists )
+        readNameIds fn = do
+          d <- (eitherDecode <$> BL.readFile fn) :: IO (Either String [DLists])
+          case d of
+            Left err -> putStrLn err
+            Right _ -> pure () -- print ds
+          let ds = V.fromList $ fromRight [] d
+          putStrLn "---------------readFolders------------"
+          -- F.for_ ds print
+          return ds
+
+    -- ls <- readNameIds "data/lists.json"
+    fs <- readNameIds "data/folders.json"
+    let fns = (\ (DLists i n) -> (n, i)) <$> fs
+    return $ M.fromList ( V.toList fns )
 
 newtype DAid = DAid { dlaid   :: Int } deriving (Show)
 instance FromJSON DAid where
@@ -167,7 +187,7 @@ cat data/l541650-raw.json | jq -s '[ .[].items[] | { id: .id  }]' > data/l541650
 # get raw JSON from Tidal and pre-process
 
 curl https://api.tidalhifi.com/v1/users/45589625/favorites/albums/\?sessionId\=<session-id>\&countryCode\=US\&limit\=2999 > data/traw.json
-cat data/traw.json | jq -s '[ .[].items[] | { id: .item.id, title: .item.title, artists: [ .item.artists[].name ], released: .item.releaseDate, added: .created, cover: .item.cover, Folder: 999 } ]' > data/tall.json
+cat data/traw.json | jq -s '[ .[].items[] | { id: .item.id, title: .item.title, artists: [ .item.artists[].name ], released: .item.releaseDate, added: .created, cover: .item.cover, Folder: 2 } ]' > data/tall.json
 
 
 

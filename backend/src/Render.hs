@@ -19,10 +19,12 @@ module Render
 -- import Network.Wai.Handler.Warp
 -- import Servant
 
+import Data.Map.Strict ( Map )
 import qualified Data.Map.Strict as M
 import qualified Data.Foldable as F
 import Data.Maybe ( mapMaybe )
-import qualified Data.Vector as V ( Vector, toList, fromList )
+import Data.Vector ( Vector )
+import qualified Data.Vector as V ( toList, fromList )
 
 -- import qualified Data.ByteString.Lazy as BL
 import qualified Lucid as L
@@ -55,8 +57,8 @@ renderAlbum mAlbum = L.html_ $ do
           L.p_ $ L.toHtml ("Year: " ++ T.unpack (albumReleased a))
           L.br_ []
 
-renderAlbums :: Env -> V.Vector Int -> Text -> Text -> L.Html ()
-renderAlbums env aids ln sn =
+renderAlbums :: Env -> Map Int Album -> Vector Int -> Vector Text -> Text -> Text -> L.Html ()
+renderAlbums env am aids listNames ln sn =
     -- L.doctype_ "html"
     L.html_ $ do
       renderHead $ "Albums - " <> ln
@@ -75,7 +77,7 @@ renderAlbums env aids ln sn =
               L.a_ [ L.class_ "dropbtn", L.href_ "javascript:void(0)" ] 
                 ( L.toHtml ( "List " ++ T.unpack ln ))
               L.div_ [ L.class_ "dropdown-content" ] $ do
-                F.traverse_ addLink  ( listNames env )
+                F.traverse_ addLink listNames
 
             L.li_ [L.class_ "dropdown"] $ do
               L.a_ [ L.class_ "dropbtn", L.href_ "javascript:void(0)" ] 
@@ -87,11 +89,11 @@ renderAlbums env aids ln sn =
 -- grid of Albums
           L.div_ [L.class_ "albums"] $ do
             L.div_ [L.class_ "row"] $ do
-              renderTNs env aids
+              renderTNs am aids
 
-renderTNs :: Env -> V.Vector Int -> L.Html ()
-renderTNs env aids =
-   F.traverse_ renderAlbumTN $ mapMaybe ( `M.lookup` albums env ) ( V.toList aids)
+renderTNs :: Map Int Album -> Vector Int -> L.Html ()
+renderTNs am aids =
+   F.traverse_ renderAlbumTN $ mapMaybe ( `M.lookup` am ) ( V.toList aids)
 
 renderAlbumTN :: Album -> L.Html ()
 renderAlbumTN a =

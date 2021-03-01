@@ -27,6 +27,8 @@ import Network.HTTP.Media ((//), (/:))
 
 import qualified Data.Vector as V ( Vector, empty, null, length, take, singleton )
 
+import Data.IORef
+
 import Env ( Env (..)
            , refreshEnv
            , initEnv
@@ -71,16 +73,20 @@ server env = serveAlbum :<|> serveAlbums
   :<|> serveDirectoryFileServer "static"
   where serveAlbum :: Int -> Handler RawHtml
         serveAlbum aid = do
-          let mAlbum = M.lookup aid ( albums env )
+          am <- liftIO ( readIORef (albums env) )
+          let mAlbum = M.lookup aid am
           return $ RawHtml $ L.renderBS (renderAlbum mAlbum)
 
         serveAlbums :: Text -> Handler RawHtml
         serveAlbums list = do
-          aids <- liftIO ( getList env list )
-          let sn :: Text; sn = "Default" -- sort name should becom optional QueryParam
-          let sort = getSort env sn
+          aids <- liftIO ( getList env env list )
+          am <- liftIO ( readIORef (albums env) )
+          lns <- liftIO ( readIORef (listNames env ) )
+          let sn :: Text; sn = "Default" -- sort name should become optional QueryParam
+          -- let sort = getSort env env sn
+          -- let aids = sort aids'
           return $ RawHtml
-                $ L.renderBS ( renderAlbums env (sort aids) list sn )
+                $ L.renderBS ( renderAlbums env am aids lns list sn )
         -- serveJSON :: Server API2
         -- serveJSON = do
         --   return $ M.elems ( albums env )
@@ -88,15 +94,30 @@ server env = serveAlbum :<|> serveAlbums
         serveDiscogs :: Text -> Text -> Handler RawHtml
         serveDiscogs token username = do
           _ <- liftIO ( refreshEnv env token username )
-          return $ RawHtml $ L.renderBS ( renderAlbums env V.empty "Listened" "Default" )
+          am <- liftIO ( readIORef (albums env) )
+          aids <- liftIO ( getList env env "Discogs" )
+          lns <- liftIO ( readIORef (listNames env ) )
+          return $ RawHtml $ L.renderBS ( renderAlbums env am aids lns "Discogs" "Default" )
 
         serveTidal :: Text -> Text -> Handler RawHtml
         serveTidal token username = do
           _ <- liftIO ( refreshEnv env token username )
-          return $ RawHtml $ L.renderBS ( renderAlbums env V.empty "Listened" "Default" )
+          am <- liftIO ( readIORef (albums env) )
+          aids <- liftIO ( getList env env "Tidal" )
+          lns <- liftIO ( readIORef (listNames env ) )
+          return $ RawHtml $ L.renderBS ( renderAlbums env am aids lns "Tidal" "Default" )
 
+
+-- type App = ReaderT Env IO
+-- type AppM = ReaderT Env Handler
 startApp :: IO ()
-startApp = initEnv Nothing Nothing >>= ( run 8080 . app )
+-- startApp = initEnv Nothing Nothing >>= ( run 8080 . app )
+startApp = do
+  env <- initEnv Nothing Nothing 
+  ref <- newIORef (0 :: Int)
+  ( run 8080 . app ) env
+
+
 
 app :: Env -> Application
 app env = serve api $ server env

@@ -4,7 +4,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module FromDiscogs ( refreshLists
-                   , DToken (..)
                    , readDiscogsReleases
                    , readDiscogsLists
                    , readListAids
@@ -125,6 +124,8 @@ type DiscogsAPI =
        :> "collection" :> "folders"
        :> Capture "folder_id" Int
        :> "releases"
+       -- :> QueryParam "sort" Text
+       -- :> QueryParam "sort_order" Text
        :> QueryParam "page" Int
        :> QueryParam "per_page" Int
        :> QueryParam "token" Token
@@ -170,6 +171,8 @@ getTest ::  Maybe Token
            -> ClientM WTest
 getReleases :: UserName
            -> Int
+           -- -> Maybe Text
+           -- -> Maybe Text
            -> Maybe Int
            -> Maybe Int
            -> Maybe Token
@@ -198,13 +201,13 @@ discogsAPI = Proxy
 
 getTest :<|> getReleases :<|> getFolders :<|> getLists :<|> getList :<|> getFolder = client discogsAPI
 
-data DToken = DToken Token UserName deriving (Show)
 data DEnv = DEnv { token :: Token
                  , username :: UserName
                  , dclient :: ClientEnv
                  }
 
 data DiscogsInfo = DiscogsFile FilePath | DiscogsSession Text Text
+  deriving Show
 --
 -- ToDo:
 --   get list and folder names/ids first
@@ -340,11 +343,10 @@ readListAids di i = do
 --
 readFolderAids :: DiscogsInfo -> Int -> IO ( Vector Int )
 readFolderAids di i = do
-  let t = "xxx"
   let DiscogsSession tok un = di
   manager <- newManager tlsManagerSettings
   let dclient = mkClientEnv manager discogsBaseUrl
-  putStrLn $ "-----------------Getting Folder " ++ T.unpack t ++ " from Discogs-----"
+  putStrLn $ "-----------------Getting Folder " ++ show i ++ " from Discogs-----"
   res <- runClientM ( getFolder un i ( Just tok ) userAgent ) dclient
   case res of
           Left err -> putStrLn $ "Error: " ++ show err
@@ -362,8 +364,9 @@ readFolderAids di i = do
   return ( V.fromList is )
 --
 --
-refreshLists :: DToken -> IO ( M.Map Text ( Vector Int ) )
-refreshLists (DToken tok un) = do
+refreshLists :: DiscogsInfo -> IO ( M.Map Text (Int, Vector Int) )
+refreshLists di = do
+  let DiscogsSession tok un = di
   manager <- newManager tlsManagerSettings  -- defaultManagerSettings
   let denv :: DEnv
       denv = DEnv { token = tok
@@ -371,19 +374,24 @@ refreshLists (DToken tok un) = do
                   , dclient = mkClientEnv manager discogsBaseUrl
                   }
 -- get list and folder names and ids
-  let queries :: DEnv -> ClientM ( WFolders, WLists )
-      queries (DEnv tok un _) = do
-        efs <- getFolders un ( Just tok ) userAgent
-        els <- getLists   un ( Just tok ) userAgent
-        return ( efs, els )
-  res <- runClientM ( queries denv ) ( dclient denv )
+  -- let queries :: DEnv -> ClientM ( WFolders, WLists )
+  --     queries (DEnv tok un _) = do
+  --       efs <- getFolders un ( Just tok ) userAgent
+  --       els <- getLists   un ( Just tok ) userAgent
+  --       return ( efs, els )
+  let query :: ClientM WLists
+      query = getLists (username denv) ( Just (token denv) ) userAgent
+  putStrLn "-----------------Refreshing Lists from Discogs-----"
+  res <- runClientM query ( dclient denv )
+  -- res <- runClientM ( queries denv ) ( dclient denv )
   case res of
     Left err -> putStrLn $ "Error: " ++ show err
-    Right ( fs, ls ) -> do
-      let ds = V.fromList ( folders fs )
-      F.for_ ds print
-      let ds = V.fromList ( lists ls )
-      F.for_ ds print
+    Right ls -> pure ()
+  let ls = case res of
+        Left _ -> []
+        Right wls -> lists wls
+  let lm :: [ ( Text, (Int, Vector Int) ) ]
+      lm = (\ WList {id=i, name=n} -> ( n, ( i, V.empty ))) <$> ls
+  return $ M.fromList lm
 
-  return ( M.singleton "Listened" undefined )
-
+  -- return ( M.singleton "Listened" undefined )

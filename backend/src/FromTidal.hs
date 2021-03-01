@@ -153,7 +153,7 @@ readTidalReleases ti = do
                           , dreleased = treleased
                           , dadded    = tcreated
                           , dcover    = tcover
-                          , dfolder   = 999
+                          , dfolder   = 2
                           }
 
       rs = case res of

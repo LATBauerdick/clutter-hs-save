@@ -1,38 +1,41 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-
 module Provider ( Album (..)
                 , Tidal (..)
                 , FT.TidalInfo (..)
                 , Discogs (..)
                 , FD.DiscogsInfo (..)
                 , readListAids
-                , DToken (..)
                 , readAlbums
                 , readLists
                 , readFolders
+                , readFolderAids
                 , refreshLists
                 , atest
                 ) where
 
 import FromJSON ( Release (..) )
-import qualified FromJSON as FJ ( readReleases, readLists )
+import qualified FromJSON as FJ ( readReleases
+                                , readLists
+                                , readFolders
+                                )
 import qualified FromTidal as FT ( readTidalReleases, TidalInfo (..) )
 import qualified FromDiscogs as FD ( readDiscogsReleases
                                    , readDiscogsLists
                                    , readListAids
                                    , readDiscogsFolders
+                                   , refreshLists
                                    , DiscogsInfo (..)
                                    )
-import FromDiscogs ( DToken (..)
-                   , refreshLists
-                   )
 import Data.Maybe (fromMaybe)
 import Data.Text.Encoding ( decodeUtf8 )
+import Data.Map.Strict ( Map )
 import qualified Data.Map.Strict as M
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
 
+import Data.List (sortBy)
+import Data.Ord (comparing)
 import Data.Text (Text)
 import qualified Data.Text as T
 
@@ -68,7 +71,7 @@ newtype Tidal = Tidal FT.TidalInfo
 getTidal :: Tidal -> FT.TidalInfo
 getTidal (Tidal ti) = ti
 
-newtype Discogs = Discogs FD.DiscogsInfo
+newtype Discogs = Discogs FD.DiscogsInfo deriving Show
 getDiscogs :: Discogs -> FD.DiscogsInfo
 getDiscogs (Discogs di) = di
 
@@ -80,7 +83,7 @@ instance Provider Tidal where
               T.pack "https://resources.tidal.com/images/"
             , T.intercalate "/" $ T.splitOn "-" (dcover r)
             , T.pack "/320x320.jpg" ]
-        toFolder = 999999
+        toFolder = 2
         getAlbumURL :: Album -> Text
         getAlbumURL a = T.pack $
             "https://www.tidal.com/album/" ++ show ( albumID a )
@@ -119,7 +122,7 @@ instance Provider Discogs where
                                 , ( 1350005, "Opera&Vocal" )
                                 , ( 1351883, "Chamber" )
                                 , ( 1254070, "Basement" )
-                                , ( 999999,  "Tidal" )
+                                , ( 2,       "Tidal" )
                                 ]
         getAlbumURL a = T.pack $
             "https://www.discogs.com/release/" ++ show ( albumID a )
@@ -147,13 +150,55 @@ instance Provider Discogs where
 
 readListAids :: Discogs -> Int -> IO ( Vector Int )
 readListAids p i = case getDiscogs p of
-                     FD.DiscogsFile _ -> undefined
+                     FD.DiscogsFile _ -> pure V.empty -- maybe not ok
                      _ -> FD.readListAids (getDiscogs p) i
 
 readFolders :: Discogs -> IO ( M.Map Text Int )
 readFolders p = case getDiscogs p of
-                  FD.DiscogsFile fn -> undefined
+                  FD.DiscogsFile fn -> FJ.readFolders
                   _ -> FD.readDiscogsFolders (getDiscogs p)
+
+-- populate the aids for folders from the folder+id in each Album
+readFolderAids :: Map Text Int -> Map Int Album -> Map Text ( Int, Vector Int )
+readFolderAids fm am = fam where
+  -- 0: all discogs
+  -- 1: uncategorized
+  fam'  = M.mapWithKey (getFolder am) fm
+  fam = M.insert "Tidal" (2, allTidal am)
+      $ M.insert "Discogs" (0, allDiscogs am)
+      $ M.insert "All" (0, all am)
+        fam'
+  all am = sAdded am
+         $ V.map albumID
+         $ V.fromList $ M.elems am
+  allDiscogs am = sAdded am
+                 $ V.map fst
+                 $ V.filter (\ (_,f) -> f/=2)
+                 $ V.map (\a -> (albumID a, albumFolder a))
+                 $ V.fromList $ M.elems am
+  allTidal am = sAdded am
+              $ V.map fst
+              $ V.filter (\ (_,f) -> f==2)
+              $ V.map (\a -> (albumID a, albumFolder a))
+              $ V.fromList $ M.elems am
+
+  sAdded :: Map Int Album -> Vector Int -> Vector Int
+  sAdded am aids = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumAdded) b a ) ( asi am aids )) where
+    asi :: Map Int Album -> Vector Int -> [ ( Int, Maybe Album ) ]
+    asi am aids =  map ( \aid -> ( aid, M.lookup aid am ) ) $ V.toList aids
+  getFolder :: Map Int Album -> Text -> Int -> (Int, Vector Int)
+  getFolder am n i = (i, filtFolder i)
+  filtFolder :: Int -> Vector Int
+  filtFolder fid = sAdded am
+                 $ V.map fst
+                 $ V.filter (\ (_,f) -> f==fid)
+                 $ V.map (\a -> (albumID a, albumFolder a))
+                 $ V.fromList $ M.elems am
+
+refreshLists :: Discogs -> IO ( M.Map Text (Int, Vector Int) )
+refreshLists p = case getDiscogs p of
+                  FD.DiscogsFile fn -> undefined
+                  _ -> FD.refreshLists (getDiscogs p)
 -- items[].item.type
 -- "SINGLE"
 -- "ALBUM"
