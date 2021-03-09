@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators   #-}
@@ -6,6 +7,7 @@
 module FromTidal ( readTidalReleases
                  , TidalInfo (..)
                  ) where
+import Relude
 
 import qualified FromJSON as FJ ( Release (..) )
 

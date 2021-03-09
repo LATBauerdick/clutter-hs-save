@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
+import Relude hiding (get)
 
 import Lib ( app )
 import Env ( Env (..), initEnv )
@@ -19,10 +19,13 @@ import Provider ( Discogs (..)
 
 main :: IO ()
 main = do
-  t <- readFile "data/tok.dat"
-  let userId = read ( words t !! 2 ) :: Int
-      sessionId = T.pack $ words t !! 3
-      countryCode = T.pack $ words t !! 4
+  t <- readFileText "data/tok.dat"
+  let [t0, t1, t2, t3, t4] = words t
+  let userId = fromMaybe 0 $ readMaybe ( toString t2 ) :: Int
+      sessionId = t3
+      countryCode = t4
+      discogsToken = t0
+      discogsUser = t1
   -- vta <- readAlbums $ Tidal $ TidalSession userId sessionId countryCode
   testEnv <- initEnv Nothing Nothing
 
@@ -34,9 +37,7 @@ main = do
 
         describe "GET /provider/discogs/<discogs-token>/<discogs-user>" $ do
           it "responds with 200" $ do
-            let discogsToken = head . words $ t
-            let discogsUser = words t !! 1
-            get (S8.pack ( "/provider/discogs/" ++ discogsToken ++ "/" ++ discogsUser )) `shouldRespondWith` 200
+            get (S8.pack ( "/provider/discogs/" ++ toString discogsToken ++ "/" ++ toString discogsUser )) `shouldRespondWith` 200
 
   hspec spec
 

@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2acad5e59bef0a0ea1e1740019ca3bf3150f52107f8ff317b66420cc5bbbbe16
+-- hash: 8b54040b40de81240b7b11a0577869f206cd33071a8e83667112762ff5d2b8e9
 
 name:           backend
 version:        0.1.0.0
@@ -39,6 +39,9 @@ library
       Paths_backend
   hs-source-dirs:
       src
+  default-extensions:
+      NoImplicitPrelude
+      OverloadedStrings
   build-depends:
       aeson
     , authenticate-oauth
@@ -55,6 +58,7 @@ library
     , mtl
     , process
     , raw-strings-qq
+    , relude
     , servant
     , servant-client
     , servant-server
@@ -74,6 +78,9 @@ executable backend-exe
       Paths_backend
   hs-source-dirs:
       app
+  default-extensions:
+      NoImplicitPrelude
+      OverloadedStrings
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
@@ -92,6 +99,7 @@ executable backend-exe
     , mtl
     , process
     , raw-strings-qq
+    , relude
     , servant
     , servant-client
     , servant-server
@@ -112,6 +120,9 @@ test-suite backend-test
       Paths_backend
   hs-source-dirs:
       test
+  default-extensions:
+      NoImplicitPrelude
+      OverloadedStrings
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
@@ -133,6 +144,7 @@ test-suite backend-test
     , mtl
     , process
     , raw-strings-qq
+    , relude
     , servant
     , servant-client
     , servant-server

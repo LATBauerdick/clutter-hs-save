@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE TypeOperators   #-}
 
@@ -11,6 +12,7 @@ module Lib
     , app
     , initEnv
     ) where
+import Relude
 
 import Network.Wai
 import Network.Wai.Handler.Warp
@@ -26,8 +28,6 @@ import qualified Lucid as L
 import Network.HTTP.Media ((//), (/:))
 
 import qualified Data.Vector as V ( Vector, empty, null, length, take, singleton )
-
-import Data.IORef
 
 import Env ( Env (..)
            , refreshEnv

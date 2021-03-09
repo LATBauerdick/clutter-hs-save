@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Provider ( Album (..)
@@ -13,6 +14,7 @@ module Provider ( Album (..)
                 , refreshLists
                 , atest
                 ) where
+import Relude
 
 import FromJSON ( Release (..) )
 import qualified FromJSON as FJ ( readReleases
@@ -28,7 +30,8 @@ import qualified FromDiscogs as FD ( readDiscogsReleases
                                    , DiscogsInfo (..)
                                    )
 import Data.Maybe (fromMaybe)
-import Data.Text.Encoding ( decodeUtf8 )
+-- import Data.Text.Encoding ( decodeUtf8 )
+import qualified Text.Show
 import Data.Map.Strict ( Map )
 import qualified Data.Map.Strict as M
 import Data.Vector ( Vector )
@@ -60,7 +63,7 @@ ppp :: Tidal
 ppp = Tidal $ FT.TidalFile "xxx"
 atest :: [ Album ]
 atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-01-01T18:01:42-08:00" 1349997 (const "https://www.tidal.com/album/161314")
-         , Album 5253301 (decodeUtf8 "Beethoven - Symphonien Nr. 3 »Eroica« & 4") "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" 1351871  (const "https://www.tidal.com/album/5253301")
+         , Album 5253301 "Beethoven - Symphonie Nr. 3 »Eroica« & 4" "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" 1351871  (const "https://www.tidal.com/album/5253301")
          ]
 
 class Provider p where

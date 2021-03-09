@@ -1,5 +1,5 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
@@ -12,6 +12,7 @@ module Env
     , initEnv
     ) where
 -- import Prelude hiding ( (++) )
+import Relude
 
 import Data.Maybe ( fromMaybe )
 import Data.Vector ( Vector (..) )
@@ -45,8 +46,6 @@ import Provider ( Tidal (..)
                 , readFolderAids
                 , refreshLists
                 )
-
-import Data.IORef
 
 data Env
   = Env
@@ -162,12 +161,13 @@ envFromFiles = do
 -- retrieve database from files
 --
 -- debug: get web credentials etc
-  t <- readFile "data/tok.dat" -- for debug, get from file with authentication data
-  let userId = read ( words t !! 2 ) :: Int
-      sessionId = T.pack $ words t !! 3
-      countryCode = T.pack $ words t !! 4
-      discogsToken = T.pack $ head . words $ t
-      discogsUser = T.pack $ words t !! 1
+  t <- readFileText "data/tok.dat" -- for debug, get from file with authentication data
+  let [t0, t1, t2, t3, t4] = words t
+      countryCode = t4
+      sessionId = t3
+      userId = fromMaybe 0 $ readMaybe ( toString t2 ) :: Int
+      discogsToken = t0
+      discogsUser = t1
   let tidal = Tidal $ TidalFile "data/tall.json"
   let tidal = Tidal $ TidalSession userId sessionId countryCode
   let discogs = Discogs $ DiscogsFile "data/dall.json"

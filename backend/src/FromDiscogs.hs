@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators   #-}
@@ -10,6 +11,7 @@ module FromDiscogs ( refreshLists
                    , readDiscogsFolders
                    , DiscogsInfo (..)
                    ) where
+import Relude
 
 import qualified FromJSON as FJ ( Release (..) )
 

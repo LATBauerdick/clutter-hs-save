@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators   #-}
@@ -14,6 +15,7 @@ module Render
     ( renderAlbum
     , renderAlbums
     ) where
+import Relude
 
 -- import Network.Wai
 -- import Network.Wai.Handler.Warp

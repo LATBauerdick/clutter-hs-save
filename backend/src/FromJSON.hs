@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -7,6 +8,7 @@ module FromJSON ( Release (..)
                 , readLists
                 , readFolders
                 ) where
+import Relude
 
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Foldable as F
