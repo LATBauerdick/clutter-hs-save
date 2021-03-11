@@ -107,9 +107,9 @@ server env = serveAlbum :<|> serveAlbums
 -- type App = ReaderT Env IO
 -- type AppM = ReaderT Env Handler
 startApp :: IO ()
--- startApp = initEnv Nothing Nothing >>= ( run 8080 . app )
+-- startApp = initEnv >>= ( run 8080 . app )
 startApp = do
-  env <- initEnv Nothing Nothing 
+  env <- initEnv
   ref <- newIORef (0 :: Int)
   ( run 8080 . app ) env
 

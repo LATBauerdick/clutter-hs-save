@@ -59,10 +59,16 @@ testAlbum = Album 123123
                   "2021-01-01T01:23:01-07:00" 1349997 ( const "xxx" )
 
 
-initEnv :: Maybe Env -> Maybe Discogs -> IO Env
-initEnv _ Nothing = envFromFiles
-initEnv Nothing _ = envFromFiles -- prelim: always read from files
-initEnv (Just env) (Just discogs') = do
+initEnv :: IO Env
+initEnv = getEnv Nothing Nothing
+
+refreshEnv :: Env -> Text -> Text -> IO Env
+refreshEnv env tok un = getEnv (Just env) (Just (Discogs $ DiscogsSession tok un))
+
+getEnv :: Maybe Env -> Maybe Discogs -> IO Env
+getEnv _ Nothing = envFromFiles
+getEnv Nothing _ = envFromFiles -- prelim: always read from files
+getEnv (Just env) (Just discogs') = do
   putTextLn $ "-----------------Updating from " <> show discogs'
   -- we still need the "old" lists map and album map
   oldAlbums <- readIORef $ albums env
@@ -85,18 +91,12 @@ initEnv (Just env) (Just discogs') = do
   let fm :: Map Text ( Int, Vector Int )
       fm = readFolderAids newFolders allAlbums
   let allLists = lm <> fm
-
-  let allListNames = V.fromList ( M.keys allLists )
-
-  M.traverseWithKey ( \ n (i,vi) -> putTextLn $ show n <> "--" <> show i <> ": " <> show (length vi) ) allLists
+  -- _ <- M.traverseWithKey ( \ n (i,vi) -> putTextLn $ show n <> "--" <> show i <> ": " <> show (length vi) ) allLists
 
   _ <- writeIORef ( lists env ) allLists
-  _ <- writeIORef ( listNames env ) allListNames
+  _ <- writeIORef ( listNames env ) ( V.fromList . M.keys $ allLists )
   _ <- writeIORef ( discogs env ) discogs'
   return env
-
-refreshEnv :: Env -> Text -> Text -> IO Env
-refreshEnv env tok un = initEnv (Just env) (Just (Discogs $ DiscogsSession tok un))
 
 envFromFiles :: IO Env
 envFromFiles = do

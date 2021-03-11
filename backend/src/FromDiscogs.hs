@@ -215,19 +215,19 @@ data DiscogsInfo = DiscogsFile FilePath | DiscogsSession Text Text
 --
 readDiscogsReleases :: DiscogsInfo -> IO [FJ.Release]
 readDiscogsReleases di = do
-  manager <- newManager tlsManagerSettings  -- defaultManagerSettings
+  m <- newManager tlsManagerSettings  -- defaultManagerSettings
   let DiscogsSession tok un = di
   let denv :: DEnv
       denv = DEnv { token = tok
                   , username = un
-                  , dclient = mkClientEnv manager discogsBaseUrl
+                  , dclient = mkClientEnv m discogsBaseUrl
                   }
       query :: ClientM [WRelease]
       query = do
         let getWr :: WReleases -> [WRelease]
             getWr wr = rs where
-                        WReleases { pagination = WPagination { pages = np
-                                                 , items = n
+                        WReleases { pagination = WPagination { pages = _
+                                                 , items = _
                                                  }
                                   , releases = rs
                                   } = wr
@@ -275,12 +275,12 @@ readDiscogsReleases di = do
 --
 readDiscogsLists :: DiscogsInfo -> IO ( Map Text ( Int, Vector Int ) )
 readDiscogsLists di = do
-  manager <- newManager tlsManagerSettings  -- defaultManagerSettings
+  m <- newManager tlsManagerSettings  -- defaultManagerSettings
   let DiscogsSession tok un = di
   let denv :: DEnv
       denv = DEnv { token = tok
                   , username = un
-                  , dclient = mkClientEnv manager discogsBaseUrl
+                  , dclient = mkClientEnv m discogsBaseUrl
                   }
 -- get list and folder names and ids
   putTextLn "-----------------Getting Lists from Discogs-----"
@@ -289,7 +289,7 @@ readDiscogsLists di = do
   res <- runClientM query ( dclient denv )
   case res of
     Left err -> putTextLn $ "Error: " <> show err
-    Right ls -> do pure () -- F.for_ (lists ls) print
+    Right _ -> pure  ()
   let ls = case res of
         Left _ -> []
         Right wls -> lists wls
@@ -302,15 +302,15 @@ readDiscogsLists di = do
 --
 readDiscogsFolders :: DiscogsInfo -> IO ( Map Text Int )
 readDiscogsFolders di = do
-  manager <- newManager tlsManagerSettings
+  m <- newManager tlsManagerSettings
   let DiscogsSession tok un = di
-      dclient = mkClientEnv manager discogsBaseUrl
+      dclient = mkClientEnv m discogsBaseUrl
 -- get list and folder names and ids
   putTextLn "-----------------Getting Folders from Discogs-----"
   res <- runClientM ( getFolders un ( Just tok ) userAgent ) dclient
   case res of
     Left err -> putTextLn $ "Error: " <> show err
-    Right fs -> do pure () -- F.for_ (folders fs) print
+    Right _ -> do pure ()
   let fs :: [WList]
       fs = case res of
         Left _ -> []
@@ -325,14 +325,14 @@ readDiscogsFolders di = do
 -- NB: the JSON required to extract album id info ir different between them
 readListAids :: DiscogsInfo -> Int -> IO ( Vector Int )
 readListAids di i = do
-  let DiscogsSession tok un = di
-  manager <- newManager tlsManagerSettings
-  let dclient = mkClientEnv manager discogsBaseUrl
+  let DiscogsSession tok _ = di
+  m <- newManager tlsManagerSettings
+  let dclient = mkClientEnv m discogsBaseUrl
   putTextLn $ "-----------------Getting List " <> show i <> " from Discogs-----"
   res <- runClientM ( getList i ( Just tok ) userAgent ) dclient
   case res of
     Left err -> putTextLn $ "Error: " <> show err
-    Right ls -> pure ()
+    Right _ -> pure ()
                 -- F.traverse_ print $ take 5 . wlitems $ ls
   let aids  = wlaid <$> V.fromList ( wlitems ( fromRight (WLItems []) res ))
   return aids
@@ -342,13 +342,13 @@ readListAids di i = do
 readFolderAids :: DiscogsInfo -> Int -> IO ( Vector Int )
 readFolderAids di i = do
   let DiscogsSession tok un = di
-  manager <- newManager tlsManagerSettings
-  let dclient = mkClientEnv manager discogsBaseUrl
+  m <- newManager tlsManagerSettings
+  let dclient = mkClientEnv m discogsBaseUrl
   putTextLn $ "-----------------Getting Folder " <> show i <> " from Discogs-----"
   res <- runClientM ( getFolder un i ( Just tok ) userAgent ) dclient
   case res of
           Left err -> putTextLn $ "Error: " <> show err
-          Right ls -> pure ()
+          Right _ -> pure ()
   let getRs :: WReleases' -> [Int]
       getRs r = is where
               geti :: WRelease' ->Int
@@ -365,11 +365,11 @@ readFolderAids di i = do
 refreshLists :: DiscogsInfo -> IO ( Map Text (Int, Vector Int) )
 refreshLists di = do
   let DiscogsSession tok un = di
-  manager <- newManager tlsManagerSettings  -- defaultManagerSettings
+  m <- newManager tlsManagerSettings  -- defaultManagerSettings
   let denv :: DEnv
       denv = DEnv { token = tok
                   , username = un
-                  , dclient = mkClientEnv manager discogsBaseUrl
+                  , dclient = mkClientEnv m discogsBaseUrl
                   }
 -- get list and folder names and ids
   -- let queries :: DEnv -> ClientM ( WFolders, WLists )
@@ -384,7 +384,7 @@ refreshLists di = do
   -- res <- runClientM ( queries denv ) ( dclient denv )
   case res of
     Left err -> putTextLn $ "Error: " <> show err
-    Right ls -> pure ()
+    Right _ -> pure ()
   let ls = case res of
         Left _ -> []
         Right wls -> lists wls

@@ -27,7 +27,7 @@ main = do
       discogsToken = t0
       discogsUser = t1
   -- vta <- readAlbums $ Tidal $ TidalSession userId sessionId countryCode
-  testEnv <- initEnv Nothing Nothing
+  testEnv <- initEnv
 
   let spec :: Spec
       spec = with (return ( app testEnv )) $ do
