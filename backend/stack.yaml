@@ -1,12 +1,14 @@
-resolver: lts-16.31
-local-bin-path: ../haskell-app/resources
+resolver: lts-17.5
+# local-bin-path: ../haskell-app/resources
 
 packages:
 - .
 
 nix:
   enable: true
-  packages: [zlib, glpk, pcre]
+  packages: [zlib]
 
 extra-deps:
--  transformers-either-0.1.1
+
+ghc-options:
+  "$everything": -haddock

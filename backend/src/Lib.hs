@@ -1,8 +1,7 @@
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
+
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE TypeOperators   #-}
-
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 
@@ -18,10 +17,7 @@ import Network.Wai
 import Network.Wai.Handler.Warp
 import Servant
 
-import Control.Monad.IO.Class ( liftIO )
-
 import qualified Data.Map.Strict as M
-import Data.Text (Text)
 
 import qualified Data.ByteString.Lazy as BL
 import qualified Lucid as L

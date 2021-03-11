@@ -29,30 +29,21 @@ dependencies:
 - servant
 - servant-server
 - servant-client
-- transformers-either
 - wai
 - warp
 - lucid
 - http-media
 - bytestring
-- utf8-string
 - vector
 - containers
-- cassava
 - text
 - raw-strings-qq
-- mtl
-- process
-- http-conduit
-- http-types
 - http-client
 - http-client-tls
-- authenticate-oauth
-- time
-- yaml
 
 library:
   source-dirs: src
+  ghc-options: -Wall
 
 executables:
   backend-exe:

@@ -1,5 +1,4 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
 
 module Provider ( Album (..)
                 , Tidal (..)
@@ -32,14 +31,12 @@ import qualified FromDiscogs as FD ( readDiscogsReleases
 import Data.Maybe (fromMaybe)
 -- import Data.Text.Encoding ( decodeUtf8 )
 import qualified Text.Show
-import Data.Map.Strict ( Map )
 import qualified Data.Map.Strict as M
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
 
 import Data.List (sortBy)
 import Data.Ord (comparing)
-import Data.Text (Text)
 import qualified Data.Text as T
 
 
@@ -68,7 +65,7 @@ atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-0
 
 class Provider p where
   readAlbums :: p -> IO (Vector Album)
-  readLists :: p ->  IO ( M.Map Text (Int, Vector Int ) )
+  readLists :: p ->  IO ( Map Text (Int, Vector Int ) )
 
 newtype Tidal = Tidal FT.TidalInfo
 getTidal :: Tidal -> FT.TidalInfo
@@ -103,7 +100,7 @@ instance Provider Tidal where
           _ -> FT.readTidalReleases (getTidal p)
     let as  = toAlbum <$> ds
 
-    putStrLn $ "Total # Tidal Albums: " ++ show (length as)
+    putTextLn $ "Total # Tidal Albums: " <> show (length as)
     -- print $ drop (length as - 4) as
 
     return $ V.fromList as
@@ -117,7 +114,7 @@ instance Provider Discogs where
     let
         toCoverURL r = dcover r
         toFolder r = dfolder r -- fromMaybe "Nothing" $ M.lookup (dfolder r) fm
-          where fm :: M.Map Int Text
+          where fm :: Map Int Text
                 fm = M.fromList [ ( 1349997, "Pop" )
                                 , ( 1351871, "Symphonic" )
                                 , ( 1351873, "Concertos" )
@@ -145,7 +142,7 @@ instance Provider Discogs where
 
     let as  = toAlbum <$> ds
 
-    putStrLn $ "Total # Discogs Albums: " ++ show (length as)
+    putTextLn $ "Total # Discogs Albums: " <> show (length as)
     -- print $ drop ( length as - 4 ) as
 
     return $ V.fromList as
@@ -156,7 +153,7 @@ readListAids p i = case getDiscogs p of
                      FD.DiscogsFile _ -> pure V.empty -- maybe not ok
                      _ -> FD.readListAids (getDiscogs p) i
 
-readFolders :: Discogs -> IO ( M.Map Text Int )
+readFolders :: Discogs -> IO ( Map Text Int )
 readFolders p = case getDiscogs p of
                   FD.DiscogsFile fn -> FJ.readFolders
                   _ -> FD.readDiscogsFolders (getDiscogs p)
@@ -198,7 +195,7 @@ readFolderAids fm am = fam where
                  $ V.map (\a -> (albumID a, albumFolder a))
                  $ V.fromList $ M.elems am
 
-refreshLists :: Discogs -> IO ( M.Map Text (Int, Vector Int) )
+refreshLists :: Discogs -> IO ( Map Text (Int, Vector Int) )
 refreshLists p = case getDiscogs p of
                   FD.DiscogsFile fn -> undefined
                   _ -> FD.refreshLists (getDiscogs p)

@@ -1,9 +1,8 @@
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
+
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators   #-}
-
-{-# LANGUAGE OverloadedStrings #-}
 
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -17,24 +16,13 @@ module Render
     ) where
 import Relude
 
--- import Network.Wai
--- import Network.Wai.Handler.Warp
--- import Servant
-
-import Data.Map.Strict ( Map )
 import qualified Data.Map.Strict as M
 import qualified Data.Foldable as F
-import Data.Maybe ( mapMaybe )
 import Data.Vector ( Vector )
-import qualified Data.Vector as V ( toList, fromList )
+import qualified Data.Vector as V ( toList )
 
--- import qualified Data.ByteString.Lazy as BL
 import qualified Lucid as L
--- import Network.HTTP.Media ((//), (/:))
 
-import Data.Text ( Text )
-
-import qualified Data.Text as T
 import Text.RawString.QQ
 
 import Env ( Env (..) )
@@ -54,13 +42,13 @@ renderAlbum mAlbum = L.html_ $ do
           L.div_ [L.class_ "cover-art"] $ do
             L.img_ [ L.src_ (albumCover a), L.width_ "160"
                    , L.height_ "160", L.alt_ "cover image." ]
-          L.p_ $ L.toHtml ("Title: " ++ T.unpack ( albumTitle a ))
-          L.p_ $ L.toHtml ("Artist: " ++ T.unpack ( albumArtist a ))
-          L.p_ $ L.toHtml ("Year: " ++ T.unpack (albumReleased a))
+          L.p_ $ L.toHtml ("Title: " <> albumTitle a)
+          L.p_ $ L.toHtml ("Artist: " <> albumArtist a)
+          L.p_ $ L.toHtml ("Year: " <> albumReleased a)
           L.br_ []
 
 renderAlbums :: Env -> Map Int Album -> Vector Int -> Vector Text -> Text -> Text -> L.Html ()
-renderAlbums env am aids listNames ln sn =
+renderAlbums env am aids lns ln sn =
     -- L.doctype_ "html"
     L.html_ $ do
       renderHead $ "Albums - " <> ln
@@ -69,7 +57,7 @@ renderAlbums env am aids listNames ln sn =
         addLink :: Text -> L.Html ()
         addLink t =
               L.a_ [ L.href_ ( url env <>  "albums/" <> t ) ] $ do
-                L.toHtml ( T.unpack t )
+                L.toHtml t
 
         albumBody = do
 -- Left Menu
@@ -77,13 +65,13 @@ renderAlbums env am aids listNames ln sn =
             L.li_ $ L.a_ [ L.class_ "active", L.href_ ( url env <> "albums/All" ) ] "Home"
             L.li_ [L.class_ "dropdown"] $ do
               L.a_ [ L.class_ "dropbtn", L.href_ "javascript:void(0)" ] 
-                ( L.toHtml ( "List " ++ T.unpack ln ))
+                ( L.toHtml ( "List " <> ln ))
               L.div_ [ L.class_ "dropdown-content" ] $ do
-                F.traverse_ addLink listNames
+                F.traverse_ addLink lns
 
             L.li_ [L.class_ "dropdown"] $ do
               L.a_ [ L.class_ "dropbtn", L.href_ "javascript:void(0)" ] 
-                ( L.toHtml ( "Sort by " ++ T.unpack sn ))
+                ( L.toHtml ( "Sort by " <> sn ))
               L.div_ [ L.class_ "dropdown-content" ] $ do
                 F.traverse_ addLink  ( sorts env )
 
@@ -105,15 +93,15 @@ renderAlbumTN a =
               L.img_ [ L.src_ (albumCover a), L.alt_ "cover image." ]
           L.div_ [L.class_ "album-info"] $ do
             L.p_ [L.class_ "album-title"] $ do
-              L.toHtml (T.unpack ( albumTitle a ))
+              L.toHtml ( albumTitle a )
             L.p_ [L.class_ "album-artist"] $ do
-              L.toHtml (T.unpack ( albumArtist a ))
+              L.toHtml ( albumArtist a )
 
 
 renderHead :: Text -> L.Html ()
 renderHead t =
       L.head_ $ do
-        L.title_ $ L.toHtml ( T.unpack t )
+        L.title_ $ L.toHtml t
         L.meta_ [L.charset_ "utf-8"]
         L.meta_ [L.name_ "viewport", L.content_ "width=device-width, initial-scale=1.0"]
         L.meta_ [L.httpEquiv_ "X-UA-Compatible", L.content_ "ie=edge"]

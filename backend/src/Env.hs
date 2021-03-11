@@ -1,5 +1,6 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
+
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
@@ -11,29 +12,18 @@ module Env
     , refreshEnv
     , initEnv
     ) where
--- import Prelude hiding ( (++) )
 import Relude
 
-import Data.Maybe ( fromMaybe )
-import Data.Vector ( Vector (..) )
+import Data.Vector ( Vector )
 import qualified Data.Vector as V ( fromList
                                   , toList
-                                  , map
-                                  , filter
-                                  , singleton
                                   , null
                                   , empty
                                   )
-import Data.List (sortBy)
-import Data.Ord (comparing)
-import Data.Text (Text)
-import qualified Data.Text as T
-
-import qualified Data.Foldable as F ( traverse_, for_ )
-
--- import qualified Data.ByteString.Lazy as BL
-import Data.Map.Strict ( Map )
+-- import Data.List (sortBy)
+-- import Data.Ord (comparing)
 import qualified Data.Map.Strict as M
+
 import Provider ( Tidal (..)
                 , TidalInfo (..)
                 , Discogs (..)
@@ -60,9 +50,6 @@ data Env
   , getSort     :: Env -> Text -> ( Vector Int -> Vector Int )
   }
 
--- testEnv :: Env
--- testEnv = Env { albums = M.singleton 1 testAlbum, url = "/", listNames = V.empty }
-
 testAlbum :: Album
 testAlbum = Album 123123
                   "Test Title"
@@ -71,11 +58,12 @@ testAlbum = Album 123123
                   "https://img.discogs.com/cOcoe8orblZUZlh_L68I8Kx3lnA=/fit-in/600x617/filters:strip_icc():format(jpeg):mode_rgb():quality(90)/discogs-images/R-6420873-1603309252-4033.jpeg.jpg"
                   "2021-01-01T01:23:01-07:00" 1349997 ( const "xxx" )
 
+
 initEnv :: Maybe Env -> Maybe Discogs -> IO Env
 initEnv _ Nothing = envFromFiles
 initEnv Nothing _ = envFromFiles -- prelim: always read from files
 initEnv (Just env) (Just discogs') = do
-  putStrLn $ "-----------------Updating from " ++ show discogs'
+  putTextLn $ "-----------------Updating from " <> show discogs'
   -- we still need the "old" lists map and album map
   oldAlbums <- readIORef $ albums env
   oldLists <- readIORef $ lists env
@@ -100,7 +88,7 @@ initEnv (Just env) (Just discogs') = do
 
   let allListNames = V.fromList ( M.keys allLists )
 
-  M.traverseWithKey ( \ n (i,vi) -> putStrLn $ show n ++ "--" ++ show i ++ ": " ++ show (length vi) ) allLists
+  M.traverseWithKey ( \ n (i,vi) -> putTextLn $ show n <> "--" <> show i <> ": " <> show (length vi) ) allLists
 
   _ <- writeIORef ( lists env ) allLists
   _ <- writeIORef ( listNames env ) allListNames
@@ -112,7 +100,7 @@ refreshEnv env tok un = initEnv (Just env) (Just (Discogs $ DiscogsSession tok u
 
 envFromFiles :: IO Env
 envFromFiles = do
-  putStrLn "-------------envFromFimes------------------"
+  putTextLn "-------------envFromFimes------------------"
 -- define sort functions and map to names
   -- let asi :: Env -> Vector Int -> [ ( Int, Maybe Album ) ]
   --     asi env aids =  map ( \aid -> ( aid, M.lookup aid ( albums env ) ) ) $ V.toList aids
@@ -192,7 +180,7 @@ envFromFiles = do
 
   let lists = lm <> fm
   let listNames = V.fromList ( M.keys lists )
-  M.traverseWithKey ( \ n (i,vi) -> putStrLn $ show n ++ "--" ++ show i ++ ": " ++ show (length vi) ) lists
+  M.traverseWithKey ( \ n (i,vi) -> putTextLn $ show n <> "--" <> show i <> ": " <> show (length vi) ) lists
   lnr <- newIORef listNames
   lr <- newIORef lists
   dr <- newIORef discogs

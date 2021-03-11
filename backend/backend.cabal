@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8b54040b40de81240b7b11a0577869f206cd33071a8e83667112762ff5d2b8e9
+-- hash: 87f280f532a5d94d9350b76dd886a1c9f0e330c880740ce68e6e4901181cc056
 
 name:           backend
 version:        0.1.0.0
@@ -42,34 +42,25 @@ library
   default-extensions:
       NoImplicitPrelude
       OverloadedStrings
+  ghc-options: -Wall
   build-depends:
       aeson
-    , authenticate-oauth
     , base >=4.7 && <5
     , bytestring
-    , cassava
     , containers
     , http-client
     , http-client-tls
-    , http-conduit
     , http-media
-    , http-types
     , lucid
-    , mtl
-    , process
     , raw-strings-qq
     , relude
     , servant
     , servant-client
     , servant-server
     , text
-    , time
-    , transformers-either
-    , utf8-string
     , vector
     , wai
     , warp
-    , yaml
   default-language: Haskell2010
 
 executable backend-exe
@@ -84,33 +75,23 @@ executable backend-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
-    , authenticate-oauth
     , backend
     , base
     , bytestring
-    , cassava
     , containers
     , http-client
     , http-client-tls
-    , http-conduit
     , http-media
-    , http-types
     , lucid
-    , mtl
-    , process
     , raw-strings-qq
     , relude
     , servant
     , servant-client
     , servant-server
     , text
-    , time
-    , transformers-either
-    , utf8-string
     , vector
     , wai
     , warp
-    , yaml
   default-language: Haskell2010
 
 test-suite backend-test
@@ -126,34 +107,24 @@ test-suite backend-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
-    , authenticate-oauth
     , backend
     , base
     , bytestring
-    , cassava
     , containers
     , hspec
     , hspec-wai
     , hspec-wai-json
     , http-client
     , http-client-tls
-    , http-conduit
     , http-media
-    , http-types
     , lucid
-    , mtl
-    , process
     , raw-strings-qq
     , relude
     , servant
     , servant-client
     , servant-server
     , text
-    , time
-    , transformers-either
-    , utf8-string
     , vector
     , wai
     , warp
-    , yaml
   default-language: Haskell2010

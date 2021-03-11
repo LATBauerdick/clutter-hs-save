@@ -1,5 +1,6 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
+{-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
+
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -11,31 +12,16 @@ import Relude
 
 import qualified FromJSON as FJ ( Release (..) )
 
-import qualified Data.Map as M
-import Data.Vector ( Vector )
-import qualified Data.Vector as V (fromList, toList, take )
-import qualified Data.Foldable as F ( for_, traverse_  )
-import Data.Either (fromRight)
-
-import Network.HTTP.Client ( Manager, defaultManagerSettings, newManager, httpLbs )
+import Network.HTTP.Client ( newManager )
 import Network.HTTP.Client.TLS ( tlsManagerSettings )
 
-import Data.Aeson ( (.:), (.:?), (.!=), FromJSON (..), withObject, eitherDecode, Value )
-import Data.Text (Text)
-import qualified Data.Text as T ( unpack )
-import GHC.Generics
+import Data.Aeson ( (.:), (.:?), (.!=), FromJSON (..), withObject )
+-- import GHC.Generics
 
--- import Control.Applicative
--- import Control.Monad
--- import Control.Monad.IO.Class
--- import Control.Monad.Trans.Either
-
-import Data.Proxy
+-- import Data.Proxy
 import Servant
-import Servant.API
+-- import Servant.API
 import Servant.Client
-
-
 
 data WTidal = WTidal
                 { limit :: Int
@@ -112,7 +98,7 @@ data TEnv = TEnv { userId :: TidalUserId
 data TidalInfo = TidalFile FilePath | TidalSession Int Text Text
 readTidalReleases :: TidalInfo -> IO [FJ.Release]
 readTidalReleases ti = do
-  manager <- newManager tlsManagerSettings  -- defaultManagerSettings
+  m <- newManager tlsManagerSettings  -- defaultManagerSettings
   let TidalSession uid sid cc = ti
       tenv :: TEnv
       tenv = TEnv { userId = uid
@@ -120,7 +106,7 @@ readTidalReleases ti = do
                   , countryCode = cc
                   , tlimit = 2999 -- 5
                   , toffset = 0 -- 1563 -- error at 1565
-                  , tclient = mkClientEnv manager ( BaseUrl Https "api.tidalhifi.com" 443 "v1" )
+                  , tclient = mkClientEnv m ( BaseUrl Https "api.tidalhifi.com" 443 "v1" )
                   }
       tquery :: ClientM WTidal
       tquery  = getTidal (userId tenv)
@@ -129,10 +115,10 @@ readTidalReleases ti = do
                            ( Just (tlimit tenv) )
                            ( Just (toffset tenv) )
                            ( Just "ClutterApp/0.1" )
-  putStrLn "-----------------Getting Favorite Albums from Tidal-----"
+  putTextLn "-----------------Getting Favorite Albums from Tidal-----"
   res <- runClientM tquery ( tclient tenv )
   case res of
-    Left err -> putStrLn $ "Error: " ++ show err
+    Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure ()
   let getReleases :: WTidal -> [FJ.Release]
       getReleases t = rs where

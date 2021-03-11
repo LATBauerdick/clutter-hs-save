@@ -1,5 +1,6 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
+{-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
+
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -17,26 +18,21 @@ import qualified FromJSON as FJ ( Release (..) )
 
 import qualified Data.Map as M
 import Data.Vector ( Vector )
-import qualified Data.Vector as V (fromList, toList, take, empty )
-import qualified Data.Foldable as F ( for_, traverse_  )
-import Data.Either (fromRight)
+import qualified Data.Vector as V (fromList, empty )
 
-import Network.HTTP.Client ( Manager, defaultManagerSettings, newManager, httpLbs )
+import Network.HTTP.Client ( newManager )
 import Network.HTTP.Client.TLS ( tlsManagerSettings )
 
-import Data.Aeson ( (.:), (.:?), (.!=), FromJSON (..), withObject, eitherDecode, Value )
-import Data.Text (Text)
-import qualified Data.Text as T ( pack, unpack )
-import GHC.Generics
+import Data.Aeson ( (.:), FromJSON (..), withObject )
+import GHC.Generics ()
 
-import Control.Applicative
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Either
+-- import Control.Applicative
+-- import Control.Monad
+-- import Control.Monad.IO.Class
 
-import Data.Proxy
+-- import Data.Proxy
 import Servant
-import Servant.API
+-- import Servant.API
 import Servant.Client
 
 
@@ -243,10 +239,10 @@ readDiscogsReleases di = do
         let rs2 = getWr r2
         return $ rs0 <> rs1 <> rs2
 
-  putStrLn "-----------------Getting Collection from Discogs-----"
+  putTextLn "-----------------Getting Collection from Discogs-----"
   res <- runClientM query ( dclient denv )
   case res of
-    Left err -> putStrLn $ "Error: " ++ show err
+    Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure ()
   let getR :: WRelease -> FJ.Release
       getR dr = r where
@@ -264,7 +260,7 @@ readDiscogsReleases di = do
           r = FJ.Release  { daid      = did
                           , dtitle    = dtitle
                           , dartists  = as
-                          , dreleased = T.pack $ show dyear
+                          , dreleased = show dyear
                           , dadded    = dadded
                           , dcover    = dcover
                           , dfolder   = dfolder_id
@@ -277,7 +273,7 @@ readDiscogsReleases di = do
 --
 --
 --
-readDiscogsLists :: DiscogsInfo -> IO ( M.Map Text ( Int, Vector Int ) )
+readDiscogsLists :: DiscogsInfo -> IO ( Map Text ( Int, Vector Int ) )
 readDiscogsLists di = do
   manager <- newManager tlsManagerSettings  -- defaultManagerSettings
   let DiscogsSession tok un = di
@@ -287,12 +283,12 @@ readDiscogsLists di = do
                   , dclient = mkClientEnv manager discogsBaseUrl
                   }
 -- get list and folder names and ids
-  putStrLn "-----------------Getting Lists from Discogs-----"
+  putTextLn "-----------------Getting Lists from Discogs-----"
   let query :: ClientM WLists
       query = getLists (username denv) ( Just (token denv) ) userAgent
   res <- runClientM query ( dclient denv )
   case res of
-    Left err -> putStrLn $ "Error: " ++ show err
+    Left err -> putTextLn $ "Error: " <> show err
     Right ls -> do pure () -- F.for_ (lists ls) print
   let ls = case res of
         Left _ -> []
@@ -304,16 +300,16 @@ readDiscogsLists di = do
 --
 --
 --
-readDiscogsFolders :: DiscogsInfo -> IO ( M.Map Text Int )
+readDiscogsFolders :: DiscogsInfo -> IO ( Map Text Int )
 readDiscogsFolders di = do
   manager <- newManager tlsManagerSettings
   let DiscogsSession tok un = di
       dclient = mkClientEnv manager discogsBaseUrl
 -- get list and folder names and ids
-  putStrLn "-----------------Getting Folders from Discogs-----"
+  putTextLn "-----------------Getting Folders from Discogs-----"
   res <- runClientM ( getFolders un ( Just tok ) userAgent ) dclient
   case res of
-    Left err -> putStrLn $ "Error: " ++ show err
+    Left err -> putTextLn $ "Error: " <> show err
     Right fs -> do pure () -- F.for_ (folders fs) print
   let fs :: [WList]
       fs = case res of
@@ -332,10 +328,10 @@ readListAids di i = do
   let DiscogsSession tok un = di
   manager <- newManager tlsManagerSettings
   let dclient = mkClientEnv manager discogsBaseUrl
-  putStrLn $ "-----------------Getting List " ++ show i ++ " from Discogs-----"
+  putTextLn $ "-----------------Getting List " <> show i <> " from Discogs-----"
   res <- runClientM ( getList i ( Just tok ) userAgent ) dclient
   case res of
-    Left err -> putStrLn $ "Error: " ++ show err
+    Left err -> putTextLn $ "Error: " <> show err
     Right ls -> pure ()
                 -- F.traverse_ print $ take 5 . wlitems $ ls
   let aids  = wlaid <$> V.fromList ( wlitems ( fromRight (WLItems []) res ))
@@ -348,10 +344,10 @@ readFolderAids di i = do
   let DiscogsSession tok un = di
   manager <- newManager tlsManagerSettings
   let dclient = mkClientEnv manager discogsBaseUrl
-  putStrLn $ "-----------------Getting Folder " ++ show i ++ " from Discogs-----"
+  putTextLn $ "-----------------Getting Folder " <> show i <> " from Discogs-----"
   res <- runClientM ( getFolder un i ( Just tok ) userAgent ) dclient
   case res of
-          Left err -> putStrLn $ "Error: " ++ show err
+          Left err -> putTextLn $ "Error: " <> show err
           Right ls -> pure ()
   let getRs :: WReleases' -> [Int]
       getRs r = is where
@@ -366,7 +362,7 @@ readFolderAids di i = do
   return ( V.fromList is )
 --
 --
-refreshLists :: DiscogsInfo -> IO ( M.Map Text (Int, Vector Int) )
+refreshLists :: DiscogsInfo -> IO ( Map Text (Int, Vector Int) )
 refreshLists di = do
   let DiscogsSession tok un = di
   manager <- newManager tlsManagerSettings  -- defaultManagerSettings
@@ -383,11 +379,11 @@ refreshLists di = do
   --       return ( efs, els )
   let query :: ClientM WLists
       query = getLists (username denv) ( Just (token denv) ) userAgent
-  putStrLn "-----------------Refreshing Lists from Discogs-----"
+  putTextLn "-----------------Refreshing Lists from Discogs-----"
   res <- runClientM query ( dclient denv )
   -- res <- runClientM ( queries denv ) ( dclient denv )
   case res of
-    Left err -> putStrLn $ "Error: " ++ show err
+    Left err -> putTextLn $ "Error: " <> show err
     Right ls -> pure ()
   let ls = case res of
         Left _ -> []
