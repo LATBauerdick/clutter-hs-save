@@ -1,11 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
 
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators   #-}
-
-{-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuasiQuotes #-}
 
 

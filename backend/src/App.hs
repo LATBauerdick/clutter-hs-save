@@ -6,7 +6,7 @@
 
 
 
-module Lib
+module App
     ( startApp
     , app
     , initEnv
@@ -22,8 +22,6 @@ import qualified Data.Map.Strict as M
 import qualified Data.ByteString.Lazy as BL
 import qualified Lucid as L
 import Network.HTTP.Media ((//), (/:))
-
-import qualified Data.Vector as V ( Vector, empty, null, length, take, singleton )
 
 import Env ( Env (..)
            , refreshEnv
@@ -45,16 +43,16 @@ instance MimeRender HTML RawHtml where
   mimeRender _ = unRaw
 
 ------------------ Servant Stuff
--- $(deriveJSON defaultOptions ''Album)
 
 type API0 = "album"  :> Capture "aid" Int :> Get '[HTML] RawHtml
-type API1 = "albums" :> Capture "list" Text :> Get '[HTML] RawHtml
--- type API2 = "albumj" :> Get '[JSON] [Album]
+type API1 = "albums"
+          :> Capture "list" Text
+          :> QueryParam "sortBy" Text
+          :> Get '[HTML] RawHtml
 type API3 = "provider" :> "discogs" :> Capture "token" Text :> Capture "username" Text :> Get '[HTML] RawHtml
 type API4 = "provider" :> "tidal" :> Capture "token" Text :> Capture "username" Text :> Get '[HTML] RawHtml
 type API = API0 
       :<|> API1
-   -- :<|> API2
       :<|> API3
       :<|> API4
       :<|> Raw
@@ -62,25 +60,27 @@ api :: Proxy API
 api = Proxy
 
 server :: Env -> Server API
-server env = serveAlbum :<|> serveAlbums
-  -- :<|> serveJSON
-  :<|> serveDiscogs
-  :<|> serveTidal
-  :<|> serveDirectoryFileServer "static"
+server env = serveAlbum
+        :<|> serveAlbums
+        :<|> serveDiscogs
+        :<|> serveTidal
+        :<|> serveDirectoryFileServer "static"
   where serveAlbum :: Int -> Handler RawHtml
         serveAlbum aid = do
           am <- liftIO ( readIORef (albums env) )
           let mAlbum = M.lookup aid am
           return $ RawHtml $ L.renderBS (renderAlbum mAlbum)
 
-        serveAlbums :: Text -> Handler RawHtml
-        serveAlbums list = do
-          aids <- liftIO ( getList env env list )
+        serveAlbums :: Text -> Maybe Text -> Handler RawHtml
+        serveAlbums list msb = do
+          aids' <- liftIO ( getList env env list )
           am <- liftIO ( readIORef (albums env) )
-          lns <- liftIO ( readIORef (listNames env ) )
-          let sn :: Text; sn = "Default" -- sort name should become optional QueryParam
-          -- let sort = getSort env env sn
-          -- let aids = sort aids'
+          lns <- liftIO ( readIORef (listNames env) )
+          sn <- case msb of
+                 Nothing -> liftIO ( readIORef (sortName env) )
+                 Just sb -> pure sb
+          let doSort = getSort env am sn
+          let aids = doSort aids'
           return $ RawHtml
                 $ L.renderBS ( renderAlbums env am aids lns list sn )
         -- serveJSON :: Server API2
@@ -107,11 +107,10 @@ server env = serveAlbum :<|> serveAlbums
 -- type App = ReaderT Env IO
 -- type AppM = ReaderT Env Handler
 startApp :: IO ()
--- startApp = initEnv >>= ( run 8080 . app )
-startApp = do
-  env <- initEnv
-  ref <- newIORef (0 :: Int)
-  ( run 8080 . app ) env
+startApp = initEnv >>= ( run 8080 . app )
+-- startApp = do
+--   env <- initEnv
+--   ( run 8080 . app ) env
 
 
 

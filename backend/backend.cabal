@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 87f280f532a5d94d9350b76dd886a1c9f0e330c880740ce68e6e4901181cc056
+-- hash: 218d0c49caab097bfce981dc754475f05ea68a9c5f9ef0e125a99365729468e6
 
 name:           backend
 version:        0.1.0.0
@@ -28,11 +28,12 @@ source-repository head
 
 library
   exposed-modules:
+      App
       Env
       FromDiscogs
       FromJSON
       FromTidal
-      Lib
+      Parse
       Provider
       Render
   other-modules:
@@ -42,7 +43,7 @@ library
   default-extensions:
       NoImplicitPrelude
       OverloadedStrings
-  ghc-options: -Wall
+  ghc-options: -Wall -fno-warn-unused-binds
   build-depends:
       aeson
     , base >=4.7 && <5

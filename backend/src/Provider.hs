@@ -28,15 +28,12 @@ import qualified FromDiscogs as FD ( readDiscogsReleases
                                    , refreshLists
                                    , DiscogsInfo (..)
                                    )
-import Data.Maybe (fromMaybe)
 -- import Data.Text.Encoding ( decodeUtf8 )
 import qualified Text.Show
 import qualified Data.Map.Strict as M
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
 
-import Data.List (sortBy)
-import Data.Ord (comparing)
 import qualified Data.Text as T
 
 
@@ -56,8 +53,6 @@ instance Eq Album where
 instance Show Album where
   show a = "Album {albumID = " ++ show (albumID a) ++ ", albumTitle =" ++ show (albumTitle a) ++ "}"
 
-ppp :: Tidal
-ppp = Tidal $ FT.TidalFile "xxx"
 atest :: [ Album ]
 atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-01-01T18:01:42-08:00" 1349997 (const "https://www.tidal.com/album/161314")
          , Album 5253301 "Beethoven - Symphonie Nr. 3 »Eroica« & 4" "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" 1351871  (const "https://www.tidal.com/album/5253301")
@@ -76,7 +71,7 @@ getDiscogs :: Discogs -> FD.DiscogsInfo
 getDiscogs (Discogs di) = di
 
 instance Provider Tidal where
-  readLists _ = undefined
+  readLists _ = error "Bug: Provider Tidal has no lists"
   readAlbums p = do
     let
         toCoverURL r = T.concat [
@@ -108,7 +103,7 @@ instance Provider Tidal where
 
 instance Provider Discogs where
   readLists p = case getDiscogs p of
-                  FD.DiscogsFile fn -> FJ.readLists
+                  FD.DiscogsFile _ -> FJ.readLists
                   _ -> FD.readDiscogsLists (getDiscogs p)
   readAlbums p = do
     let
@@ -134,7 +129,7 @@ instance Provider Discogs where
                           (dadded r)
                           (toFolder r)
                           getAlbumURL
-        fn = "data/dall.json"
+        -- fn = "data/dall.json"
 
     ds <- case getDiscogs p of
           FD.DiscogsFile fn -> FJ.readReleases fn
@@ -155,7 +150,7 @@ readListAids p i = case getDiscogs p of
 
 readFolders :: Discogs -> IO ( Map Text Int )
 readFolders p = case getDiscogs p of
-                  FD.DiscogsFile fn -> FJ.readFolders
+                  FD.DiscogsFile _ -> FJ.readFolders
                   _ -> FD.readDiscogsFolders (getDiscogs p)
 
 -- populate the aids for folders from the folder+id in each Album
@@ -163,33 +158,33 @@ readFolderAids :: Map Text Int -> Map Int Album -> Map Text ( Int, Vector Int )
 readFolderAids fm am = fam where
   -- 0: all discogs
   -- 1: uncategorized
-  fam'  = M.mapWithKey (getFolder am) fm
-  fam = M.insert "Tidal" (2, allTidal am)
-      $ M.insert "Discogs" (0, allDiscogs am)
-      $ M.insert "All" (0, all am)
+  fam'  = M.map getFolder fm
+  fam = M.insert "Tidal"   (2, allTidal)
+      $ M.insert "Discogs" (0, allDiscogs)
+      $ M.insert "All"     (3, allAlbums)
         fam'
-  all am = sAdded am
-         $ V.map albumID
-         $ V.fromList $ M.elems am
-  allDiscogs am = sAdded am
-                 $ V.map fst
-                 $ V.filter (\ (_,f) -> f/=2)
-                 $ V.map (\a -> (albumID a, albumFolder a))
-                 $ V.fromList $ M.elems am
-  allTidal am = sAdded am
+  allAlbums = sAdded
+            $ V.map albumID
+            $ V.fromList $ M.elems am
+  allDiscogs = sAdded
               $ V.map fst
-              $ V.filter (\ (_,f) -> f==2)
+              $ V.filter (\ (_,f) -> f/=2)
               $ V.map (\a -> (albumID a, albumFolder a))
-              $ V.fromList $ M.elems am
+               $ V.fromList $ M.elems am
+  allTidal = sAdded
+           $ V.map fst
+           $ V.filter (\ (_,f) -> f==2)
+           $ V.map (\a -> (albumID a, albumFolder a))
+           $ V.fromList $ M.elems am
 
-  sAdded :: Map Int Album -> Vector Int -> Vector Int
-  sAdded am aids = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumAdded) b a ) ( asi am aids )) where
-    asi :: Map Int Album -> Vector Int -> [ ( Int, Maybe Album ) ]
-    asi am aids =  map ( \aid -> ( aid, M.lookup aid am ) ) $ V.toList aids
-  getFolder :: Map Int Album -> Text -> Int -> (Int, Vector Int)
-  getFolder am n i = (i, filtFolder i)
+  sAdded :: Vector Int -> Vector Int
+  sAdded aids = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumAdded) b a ) asi ) where
+    asi :: [ ( Int, Maybe Album ) ]
+    asi =  map ( \aid -> ( aid, M.lookup aid am ) ) $ V.toList aids
+  getFolder :: Int -> (Int, Vector Int)
+  getFolder i = (i, filtFolder i)
   filtFolder :: Int -> Vector Int
-  filtFolder fid = sAdded am
+  filtFolder fid = sAdded
                  $ V.map fst
                  $ V.filter (\ (_,f) -> f==fid)
                  $ V.map (\a -> (albumID a, albumFolder a))
@@ -197,7 +192,7 @@ readFolderAids fm am = fam where
 
 refreshLists :: Discogs -> IO ( Map Text (Int, Vector Int) )
 refreshLists p = case getDiscogs p of
-                  FD.DiscogsFile fn -> undefined
+                  FD.DiscogsFile fn -> error $ "Bug: Provider Discogs does not refresh lists from files " <> toText fn
                   _ -> FD.refreshLists (getDiscogs p)
 -- items[].item.type
 -- "SINGLE"

@@ -2,7 +2,7 @@
 
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module FromDiscogs ( refreshLists
@@ -110,14 +110,12 @@ discogsBaseUrl =  BaseUrl Https "api.discogs.com" 443 []
 
 type DiscogsAPI =
 -- GET release
-       "releases/249504"
-       :> Header "Authorization: Discogs token" Token
-       :> Header "User-Agent" UserAgent
-       :> Get '[JSON] WTest
-
---curl "https://api.discogs.com/users/LATB/collection/folders/0/releases?page=1&per_page=500" -H "Authorization: Discogs token=<token>" > data/draw1.json
+       -- "releases/249504"
+       -- :> Header "Authorization: Discogs token" Token
+       -- :> Header "User-Agent" UserAgent
+       -- :> Get '[JSON] WTest
 -- GET releases
-  :<|> "users"
+       "users"
        :> Capture "name" UserName
        :> "collection" :> "folders"
        :> Capture "folder_id" Int
@@ -154,19 +152,16 @@ type DiscogsAPI =
        :> Header "User-Agent" UserAgent
        :> Get '[JSON] WLItems
 -- Get Folder items
-  :<|> "users"
-       :> Capture "name" UserName
-       :> "collection" :> "folders"
-       :> Capture "folder_id" Int
-       :> "releases"
-       :> QueryParam "token" Token
-       -- :> Header "Authorization: Discogs token" Token
-       :> Header "User-Agent" UserAgent
-       :> Get '[JSON] WReleases'
+  -- :<|> "users"
+  --      :> Capture "name" UserName
+  --      :> "collection" :> "folders"
+  --      :> Capture "folder_id" Int
+  --      :> "releases"
+  --      :> QueryParam "token" Token
+  --      -- :> Header "Authorization: Discogs token" Token
+  --      :> Header "User-Agent" UserAgent
+  --      :> Get '[JSON] WReleases'
 
-getTest ::  Maybe Token
-           -> Maybe UserAgent
-           -> ClientM WTest
 getReleases :: UserName
            -> Int
            -- -> Maybe Text
@@ -188,21 +183,16 @@ getList :: Int
          -> Maybe Token
          -> Maybe UserAgent
          -> ClientM WLItems
-getFolder :: UserName
-         -> Int
-         -> Maybe Token
-         -> Maybe UserAgent
-         -> ClientM WReleases'
+-- getFolder :: UserName
+--          -> Int
+--          -> Maybe Token
+--          -> Maybe UserAgent
+--          -> ClientM WReleases'
 
 discogsAPI :: Proxy DiscogsAPI
 discogsAPI = Proxy
 
-getTest :<|> getReleases :<|> getFolders :<|> getLists :<|> getList :<|> getFolder = client discogsAPI
-
-data DEnv = DEnv { token :: Token
-                 , username :: UserName
-                 , dclient :: ClientEnv
-                 }
+getReleases :<|> getFolders :<|> getLists :<|> getList = client discogsAPI
 
 data DiscogsInfo = DiscogsFile FilePath | DiscogsSession Text Text
   deriving Show
@@ -217,11 +207,7 @@ readDiscogsReleases :: DiscogsInfo -> IO [FJ.Release]
 readDiscogsReleases di = do
   m <- newManager tlsManagerSettings  -- defaultManagerSettings
   let DiscogsSession tok un = di
-  let denv :: DEnv
-      denv = DEnv { token = tok
-                  , username = un
-                  , dclient = mkClientEnv m discogsBaseUrl
-                  }
+  let dc = mkClientEnv m discogsBaseUrl
       query :: ClientM [WRelease]
       query = do
         let getWr :: WReleases -> [WRelease]
@@ -240,7 +226,7 @@ readDiscogsReleases di = do
         return $ rs0 <> rs1 <> rs2
 
   putTextLn "-----------------Getting Collection from Discogs-----"
-  res <- runClientM query ( dclient denv )
+  res <- runClientM query dc
   case res of
     Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure ()
@@ -277,16 +263,12 @@ readDiscogsLists :: DiscogsInfo -> IO ( Map Text ( Int, Vector Int ) )
 readDiscogsLists di = do
   m <- newManager tlsManagerSettings  -- defaultManagerSettings
   let DiscogsSession tok un = di
-  let denv :: DEnv
-      denv = DEnv { token = tok
-                  , username = un
-                  , dclient = mkClientEnv m discogsBaseUrl
-                  }
+  let dc = mkClientEnv m discogsBaseUrl
 -- get list and folder names and ids
   putTextLn "-----------------Getting Lists from Discogs-----"
   let query :: ClientM WLists
-      query = getLists (username denv) ( Just (token denv) ) userAgent
-  res <- runClientM query ( dclient denv )
+      query = getLists un ( Just tok ) userAgent
+  res <- runClientM query dc
   case res of
     Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure  ()
@@ -304,10 +286,10 @@ readDiscogsFolders :: DiscogsInfo -> IO ( Map Text Int )
 readDiscogsFolders di = do
   m <- newManager tlsManagerSettings
   let DiscogsSession tok un = di
-      dclient = mkClientEnv m discogsBaseUrl
+      dc = mkClientEnv m discogsBaseUrl
 -- get list and folder names and ids
   putTextLn "-----------------Getting Folders from Discogs-----"
-  res <- runClientM ( getFolders un ( Just tok ) userAgent ) dclient
+  res <- runClientM ( getFolders un ( Just tok ) userAgent ) dc
   case res of
     Left err -> putTextLn $ "Error: " <> show err
     Right _ -> do pure ()
@@ -327,9 +309,9 @@ readListAids :: DiscogsInfo -> Int -> IO ( Vector Int )
 readListAids di i = do
   let DiscogsSession tok _ = di
   m <- newManager tlsManagerSettings
-  let dclient = mkClientEnv m discogsBaseUrl
+  let dc = mkClientEnv m discogsBaseUrl
   putTextLn $ "-----------------Getting List " <> show i <> " from Discogs-----"
-  res <- runClientM ( getList i ( Just tok ) userAgent ) dclient
+  res <- runClientM ( getList i ( Just tok ) userAgent ) dc
   case res of
     Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure ()
@@ -339,49 +321,38 @@ readListAids di i = do
 --
 -- for a Discog folder_id, get the lists of album ids from Discogs
 --
-readFolderAids :: DiscogsInfo -> Int -> IO ( Vector Int )
-readFolderAids di i = do
-  let DiscogsSession tok un = di
-  m <- newManager tlsManagerSettings
-  let dclient = mkClientEnv m discogsBaseUrl
-  putTextLn $ "-----------------Getting Folder " <> show i <> " from Discogs-----"
-  res <- runClientM ( getFolder un i ( Just tok ) userAgent ) dclient
-  case res of
-          Left err -> putTextLn $ "Error: " <> show err
-          Right _ -> pure ()
-  let getRs :: WReleases' -> [Int]
-      getRs r = is where
-              geti :: WRelease' ->Int
-              geti r = i
-                      where WRelease' {id=i} = r
-              WReleases' { releases=rs } = r
-              is = geti <$> rs
-  let is = case res of
-              Left _ -> []
-              Right r -> getRs r
-  return ( V.fromList is )
+-- readFolderAids :: DiscogsInfo -> Int -> IO ( Vector Int )
+-- readFolderAids di i = do
+--   let DiscogsSession tok un = di
+--   m <- newManager tlsManagerSettings
+--   let dc = mkClientEnv m discogsBaseUrl
+--   putTextLn $ "-----------------Getting Folder " <> show i <> " from Discogs-----"
+--   res <- runClientM ( getFolder un i ( Just tok ) userAgent ) dc
+--   case res of
+--           Left err -> putTextLn $ "Error: " <> show err
+--           Right _ -> pure ()
+--   let getRs :: WReleases' -> [Int]
+--       getRs r = is where
+--               geti :: WRelease' ->Int
+--               geti r = i
+--                       where WRelease' {id=i} = r
+--               WReleases' { releases=rs } = r
+--               is = geti <$> rs
+--   let is = case res of
+--               Left _ -> []
+--               Right r -> getRs r
+--   return ( V.fromList is )
 --
 --
 refreshLists :: DiscogsInfo -> IO ( Map Text (Int, Vector Int) )
 refreshLists di = do
   let DiscogsSession tok un = di
   m <- newManager tlsManagerSettings  -- defaultManagerSettings
-  let denv :: DEnv
-      denv = DEnv { token = tok
-                  , username = un
-                  , dclient = mkClientEnv m discogsBaseUrl
-                  }
--- get list and folder names and ids
-  -- let queries :: DEnv -> ClientM ( WFolders, WLists )
-  --     queries (DEnv tok un _) = do
-  --       efs <- getFolders un ( Just tok ) userAgent
-  --       els <- getLists   un ( Just tok ) userAgent
-  --       return ( efs, els )
+  let dc = mkClientEnv m discogsBaseUrl
   let query :: ClientM WLists
-      query = getLists (username denv) ( Just (token denv) ) userAgent
+      query = getLists un (Just tok) userAgent
   putTextLn "-----------------Refreshing Lists from Discogs-----"
-  res <- runClientM query ( dclient denv )
-  -- res <- runClientM ( queries denv ) ( dclient denv )
+  res <- runClientM query dc
   case res of
     Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure ()

@@ -1,7 +1,7 @@
 module Main (main) where
 import Relude hiding (get)
 
-import Lib ( app )
+import App ( app )
 import Env ( Env (..), initEnv )
 import Test.Hspec
 import Test.Hspec.Wai

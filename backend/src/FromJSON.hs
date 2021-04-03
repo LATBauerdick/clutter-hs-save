@@ -1,7 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
 
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module FromJSON ( Release (..)
                 , readReleases
                 , readLists
@@ -68,7 +66,7 @@ readReleases fn =do
     d <- (eitherDecode <$> readFileLBS fn) :: IO (Either String [Release])
     case d of
       Left err -> putTextLn $ toText err
-      Right ds -> pure () -- print $ drop (length ds-4) ds
+      Right _ -> pure () -- print $ drop (length ds-4) ds
     return $ fromRight [] d
 
 

@@ -97,9 +97,9 @@ data TEnv = TEnv { userId :: TidalUserId
                  }
 data TidalInfo = TidalFile FilePath | TidalSession Int Text Text
 readTidalReleases :: TidalInfo -> IO [FJ.Release]
-readTidalReleases ti = do
+readTidalReleases tinf = do
   m <- newManager tlsManagerSettings  -- defaultManagerSettings
-  let TidalSession uid sid cc = ti
+  let TidalSession uid sid cc = tinf
       tenv :: TEnv
       tenv = TEnv { userId = uid
                   , sessionId = sid
@@ -121,8 +121,7 @@ readTidalReleases ti = do
     Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure ()
   let getReleases :: WTidal -> [FJ.Release]
-      getReleases t = rs where
-        rs = getRelease <$> tis
+      getReleases t = getRelease <$> tis where
         WTidal {items=tis} = t
         getRelease :: WTItem -> FJ.Release
         getRelease ti = r where
