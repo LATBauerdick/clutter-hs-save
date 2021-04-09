@@ -4,6 +4,7 @@
 
 
 
+
 module Render
     ( renderAlbum
     , renderAlbums
@@ -33,9 +34,10 @@ renderAlbum mAlbum = L.html_ $ do
           L.br_ []
           L.a_ [L.href_ "/albums"] "Please see all Albums"
       Just a -> L.div_ [L.class_ "data-deskgap-drag"] $ do
-          L.div_ [L.class_ "cover-art"] $ do
-            L.img_ [ L.src_ (albumCover a), L.width_ "160"
-                   , L.height_ "160", L.alt_ "cover image." ]
+          L.div_ [L.class_ "cover-container"] $ do
+            L.img_ [ L.src_ (albumCover a),
+                     L.alt_ "cover image", L.class_ "cover-image" ]
+            L.div_ [L.class_ "cover-overlay"] "Overlay Here"
           L.p_ $ L.toHtml ("Title: " <> albumTitle a)
           L.p_ $ L.toHtml ("Artist: " <> albumArtist a)
           L.p_ $ L.toHtml ("Year: " <> albumReleased a)
@@ -82,9 +84,13 @@ renderTNs am aids =
 renderAlbumTN :: Album -> L.Html ()
 renderAlbumTN a =
         L.div_ [L.class_ "album-thumb"] $ do
-          L.div_ [L.class_ "cover-art"] $ do
+          L.div_ [L.class_ "cover-container"] $ do
             L.a_ [L.href_ (albumURL a a)] $ do
-              L.img_ [ L.src_ (albumCover a), L.alt_ "cover image." ]
+              L.img_ [ L.src_ (albumCover a), L.alt_ "cover image."
+                     , L.class_ "cover-image"]
+              L.div_ [L.class_ "cover-overlay"] $ do
+                L.img_ [L.src_ "/discogs-icon.png"
+                       , L.alt_ "D", L.class_ "cover-oimage"]
           L.div_ [L.class_ "album-info"] $ do
             L.p_ [L.class_ "album-title"] $ do
               L.toHtml ( albumTitle a )
@@ -107,6 +113,108 @@ styleqq = [r|
 * {
   box-sizing: border-box;
 }
+
+img {
+/*  border: 1px solid #ddd; */
+  border-radius: 4px;
+  padding: 5px;
+}
+
+img:hover {
+  box-shadow: 0 0 2px 1px rgba(0, 140, 186, 0.5);
+}
+
+.album-thumb {
+  padding: 0px 1px 10px;
+}
+
+.album-info {
+  width: 210px;
+}
+
+p.album-title {
+  white-space: nowrap; 
+  /* border: 1px solid #ddd; */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: helvetica;
+  font-size: 14px;
+  margin: 2px 0 0 0;
+}
+p.album-artist {
+  white-space: nowrap; 
+  /* border: 1px solid #ddd; */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: helvetica;
+  font-size: 11px;
+  margin: 4px 0 0 0;
+}
+
+.albums {
+  margin-left:12%;
+  padding:1px 16px;
+/*  height:1000px; */
+ }
+
+.row {
+  display: flex;
+  justify-content: space-evenly;
+  flex-wrap: wrap;
+  padding: 0 1px;
+}
+
+/* Container needed to position the overlay. Adjust the width as needed */
+.cover-container {
+  width:  205px;
+  height: 205px;
+  position: relative;
+}
+.cover-container:hover {
+  box-shadow: 0 0 2px 1px rgba(0, 140, 186, 0.5);
+}
+
+/* Make the image to responsive */
+.cover-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  padding: 5px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.cover-image:hover {
+  box-shadow: 0 0 2px 1px rgba(0, 140, 186, 0.5);
+}
+
+/* The overlay effect - lays on top of the container and over the image */
+.cover-overlay {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.cover-oimage {
+  display: block;
+  width: 24px;
+  height: 24px;
+  padding: 2px;
+  position: absolute;
+  right: 7;
+  bottom: 7;
+  background-color: white;
+  opacity: 0.5;
+}
+
+/* When you mouse over the container, fade in the overlay title */
+/*.cover-container:hover .cover-overlay {
+  opacity: 1;
+}
+*/
 
 |]
 
