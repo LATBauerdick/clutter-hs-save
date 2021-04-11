@@ -22,11 +22,11 @@ import qualified Data.Vector as V ( fromList
 -- import Data.Ord (comparing)
 import qualified Data.Map.Strict as M
 
+import Types ( Album (..), TidalInfo (..) )
+
 import Provider ( Tidal (..)
-                , TidalInfo (..)
                 , Discogs (..)
                 , DiscogsInfo (..)
-                , Album (..)
                 , readAlbums
                 , readLists
                 , readListAids

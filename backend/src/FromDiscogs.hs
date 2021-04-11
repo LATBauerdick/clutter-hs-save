@@ -14,7 +14,7 @@ module FromDiscogs ( refreshLists
                    ) where
 import Relude
 
-import qualified FromJSON as FJ ( Release (..) )
+import Types ( Release (..) )
 
 import qualified Data.Map as M
 import Data.Vector ( Vector )
@@ -23,7 +23,7 @@ import qualified Data.Vector as V (fromList, empty )
 import Network.HTTP.Client ( newManager )
 import Network.HTTP.Client.TLS ( tlsManagerSettings )
 
-import Data.Aeson ( (.:), FromJSON (..), withObject )
+import Data.Aeson ( (.:), (.:?), (.!=), FromJSON (..), withObject )
 import GHC.Generics ()
 
 -- import Control.Applicative
@@ -60,13 +60,28 @@ data WRelease = WRelease { id :: Int
                          , date_added :: !Text
                          , folder_id :: Int
                          , basic_information :: WBasicInfo
+                         , notes :: [WNote]
                          } deriving (Show, Generic)
+instance FromJSON WRelease where
+  parseJSON = withObject "release" $ \ o -> do
+    daid_      <- o .: "id"
+    dadded_    <- o .: "date_added"
+    fid_       <- o .: "folder_id"
+    bi_        <- o .: "basic_information"
+    notes_     <- o .:? "notes" .!= []
+    return ( WRelease daid_ dadded_ fid_ bi_ notes_ )
 data WBasicInfo = WBasicInfo { title :: !Text
                              , year :: Int
                              , cover_image :: !Text
                              , artists :: [WArtist]
+                             , formats :: [WFormat]
                              } deriving (Show, Generic)
+data WNote = WNote { field_id :: Int
+                   , value :: !Text
+                   } deriving (Show, Generic)
 data WArtist = WArtist { name :: !Text
+                       } deriving (Show, Generic)
+data WFormat = WFormat { name :: !Text
                        } deriving (Show, Generic)
 data WReleases' = WReleases' { pagination :: WPagination
                              , releases :: [WRelease']
@@ -92,9 +107,11 @@ instance FromJSON WFolders
 instance FromJSON WList
 instance FromJSON WPagination
 instance FromJSON WReleases
-instance FromJSON WRelease
+-- instance FromJSON WRelease
 instance FromJSON WBasicInfo
+instance FromJSON WNote
 instance FromJSON WArtist
+instance FromJSON WFormat
 instance FromJSON WReleases'
 instance FromJSON WRelease'
 
@@ -203,7 +220,7 @@ data DiscogsInfo = DiscogsFile FilePath | DiscogsSession Text Text
 --   directly from the folder id in the release record
 --   lists should only be constructed lazily
 --
-readDiscogsReleases :: DiscogsInfo -> IO [FJ.Release]
+readDiscogsReleases :: DiscogsInfo -> IO [Release]
 readDiscogsReleases di = do
   m <- newManager tlsManagerSettings  -- defaultManagerSettings
   let DiscogsSession tok un = di
@@ -230,27 +247,36 @@ readDiscogsReleases di = do
   case res of
     Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure ()
-  let getR :: WRelease -> FJ.Release
+  let getR :: WRelease -> Release
       getR dr = r where
           WRelease { id = did
-                   , date_added = dadded
+                   , date_added = da
                    , folder_id = dfolder_id
                    , basic_information =
-                       WBasicInfo { title=dtitle
+                       WBasicInfo { title=dt
                                   , year=dyear
-                                  , cover_image=dcover
-                                  , artists=dartists
+                                  , cover_image=dcov
+                                  , artists=das
+                                  , formats=dfs
                                   }
+                   , notes = ns
                    } = dr
-          as = (\ WArtist { name=n } -> n ) <$> dartists
-          r = FJ.Release  { daid      = did
-                          , dtitle    = dtitle
-                          , dartists  = as
-                          , dreleased = show dyear
-                          , dadded    = dadded
-                          , dcover    = dcover
-                          , dfolder   = dfolder_id
-                            }
+          as = (\ WArtist { name=n } -> n ) <$> das
+          turl :: Maybe Text
+          turl = case mapMaybe (\ WNote { field_id=i, value=v } -> if i /= 6 then Nothing else Just v) ns of
+                  [a] -> Just a
+                  _ -> Nothing
+          fs = (\ WFormat { name=n } -> n ) <$> dfs
+          r = Release  { daid      = did
+                       , dtitle    = dt
+                       , dartists  = as
+                       , dreleased = show dyear
+                       , dadded    = da
+                       , dcover    = dcov
+                       , dfolder   = dfolder_id
+                       , dformat   = fs
+                       , dtidalurl  = turl
+                       }
 
   let rs = case res of
         Left _ -> []

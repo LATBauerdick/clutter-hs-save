@@ -6,11 +6,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module FromTidal ( readTidalReleases
-                 , TidalInfo (..)
                  ) where
 import Relude
-
-import qualified FromJSON as FJ ( Release (..) )
 
 import Network.HTTP.Client ( newManager )
 import Network.HTTP.Client.TLS ( tlsManagerSettings )
@@ -22,6 +19,9 @@ import Data.Aeson ( (.:), (.:?), (.!=), FromJSON (..), withObject )
 import Servant
 -- import Servant.API
 import Servant.Client
+
+import Types ( Release (..), TagFolder (..), TidalInfo (..) )
+
 
 data WTidal = WTidal
                 { limit :: Int
@@ -57,7 +57,6 @@ data WTArtist = WTArtist
                 , name :: !Text
                 } deriving (Show, Generic)
 instance FromJSON WTArtist
-
 
 type UserAgent = Text
 type TidalUserId = Int
@@ -95,8 +94,7 @@ data TEnv = TEnv { userId :: TidalUserId
                  , toffset :: TidalOffset
                  , tclient :: ClientEnv
                  }
-data TidalInfo = TidalFile FilePath | TidalSession Int Text Text
-readTidalReleases :: TidalInfo -> IO [FJ.Release]
+readTidalReleases :: TidalInfo -> IO [Release]
 readTidalReleases tinf = do
   m <- newManager tlsManagerSettings  -- defaultManagerSettings
   let TidalSession uid sid cc = tinf
@@ -120,10 +118,10 @@ readTidalReleases tinf = do
   case res of
     Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure ()
-  let getReleases :: WTidal -> [FJ.Release]
+  let getReleases :: WTidal -> [Release]
       getReleases t = getRelease <$> tis where
         WTidal {items=tis} = t
-        getRelease :: WTItem -> FJ.Release
+        getRelease :: WTItem -> Release
         getRelease ti = r where
           WTItem { created=tcreated, item=tii } = ti
           WTIItem { id = tid
@@ -134,14 +132,16 @@ readTidalReleases tinf = do
                   , artists = tartists
                   } = tii
           as = (\ WTArtist { name=n } -> n ) <$> tartists
-          r = FJ.Release  { daid      = tid
-                          , dtitle    = ttitle
-                          , dartists  = as
-                          , dreleased = treleased
-                          , dadded    = tcreated
-                          , dcover    = tcover
-                          , dfolder   = 2
-                          }
+          r = Release  { daid      = tid
+                       , dtitle    = ttitle
+                       , dartists  = as
+                       , dreleased = treleased
+                       , dadded    = tcreated
+                       , dcover    = tcover
+                       , dfolder   = fromEnum TTidal
+                       , dformat   = ["Tidal"]
+                       , dtidalurl = Nothing
+                       }
 
       rs = case res of
         Left _ -> []

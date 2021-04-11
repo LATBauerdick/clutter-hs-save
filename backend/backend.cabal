@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 218d0c49caab097bfce981dc754475f05ea68a9c5f9ef0e125a99365729468e6
+-- hash: 472e76b47cb4e8688ca1c04a55fe472d02d16c7e7133b0100cb04082d2f684e3
 
 name:           backend
 version:        0.1.0.0
@@ -36,6 +36,7 @@ library
       Parse
       Provider
       Render
+      Types
   other-modules:
       Paths_backend
   hs-source-dirs:

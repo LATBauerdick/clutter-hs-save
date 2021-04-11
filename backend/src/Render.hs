@@ -15,13 +15,12 @@ import qualified Data.Map.Strict as M
 import qualified Data.Foldable as F
 import Data.Vector ( Vector )
 import qualified Data.Vector as V ( toList )
-
 import qualified Lucid as L
 
 import Text.RawString.QQ
 
 import Env ( Env (..) )
-import Provider ( Album (..) )
+import Types (  Album (..), TagFolder (..) )
 
 renderAlbum :: Maybe Album -> L.Html ()
 renderAlbum mAlbum = L.html_ $ do
@@ -89,8 +88,17 @@ renderAlbumTN a =
               L.img_ [ L.src_ (albumCover a), L.alt_ "cover image."
                      , L.class_ "cover-image"]
               L.div_ [L.class_ "cover-overlay"] $ do
-                L.img_ [L.src_ "/discogs-icon.png"
-                       , L.alt_ "D", L.class_ "cover-oimage"]
+                L.div_ [L.class_ "cover-obackground"] $ do
+                  let ifn = if albumFolder a == fromEnum TTidal
+                               then "/tidal-icon.png"
+                               else "/discogs-icon.png"
+                  L.img_ [L.src_ ifn
+                         , L.alt_ "D", L.class_ "cover-oimage"]
+                case albumTidal a of
+                  Nothing -> ""
+                  Just turl -> L.div_ [L.class_ "cover-obackground1"] $ do
+                           L.a_ [L.href_ turl] $ do
+                             L.img_ [L.src_ "/tidal-icon.png", L.alt_ "T", L.class_ "cover-oimage"]
           L.div_ [L.class_ "album-info"] $ do
             L.p_ [L.class_ "album-title"] $ do
               L.toHtml ( albumTitle a )
@@ -198,18 +206,33 @@ p.album-artist {
   left: 0;
 }
 
+.cover-obackground {
+  width: 24px;
+  height: 24px;
+  padding: 0px;
+  border-radius: 4px;
+  position: absolute;
+  right: 7;
+  bottom: 7;
+  background-color: rgba(255,255,255,.5);
+}
 .cover-oimage {
   display: block;
   width: 24px;
   height: 24px;
-  padding: 2px;
-  position: absolute;
-  right: 7;
-  bottom: 7;
-  background-color: white;
-  opacity: 0.5;
+  padding: 0px;
 }
 
+.cover-obackground1 {
+  width: 24px;
+  height: 24px;
+  padding: 0px;
+  border-radius: 4px;
+  position: absolute;
+  left: 7;
+  bottom: 7;
+  background-color: rgba(255,255,255,.5);
+}
 /* When you mouse over the container, fade in the overlay title */
 /*.cover-container:hover .cover-overlay {
   opacity: 1;

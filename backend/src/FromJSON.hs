@@ -1,7 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
 
-module FromJSON ( Release (..)
-                , readReleases
+module FromJSON ( readReleases
                 , readLists
                 , readFolders
                 ) where
@@ -13,24 +12,13 @@ import qualified Data.Vector as V (fromList, toList )
 import qualified Data.Map as M
 import Control.Exception (IOException)
 import qualified Control.Exception as Exception
+import Types ( Release (..) )
 
-data Release
-  = Release
-  { daid      :: Int
-  , dtitle    :: !Text
-  , dartists  :: [ Text ]
-  , dreleased :: !Text
-  , dadded    :: !Text
-  , dcover    :: !Text
-  , dfolder   :: Int
-  -- , dnotes   :: [ DNote ]
-  } deriving (Show)
 data DNote
   = DNote
   { dfid  :: Int
   , dval  :: !Text
   } deriving (Show)
-
 
 instance FromJSON DNote where
   parseJSON = withObject "notes" $ \ o -> do
@@ -38,7 +26,11 @@ instance FromJSON DNote where
     dval_ <- o .: "value"
     return $ DNote dfid_ dval_
 
-instance FromJSON Release where
+newtype FJRelease = FJRelease Release
+unFJRelease :: FJRelease -> Release
+unFJRelease (FJRelease r) = r
+
+instance FromJSON FJRelease where
   parseJSON = withObject "release" $ \ o -> do
     daid_      <- o .: "id"
     dtitle_    <- o .: "title"
@@ -48,7 +40,7 @@ instance FromJSON Release where
     dcover_    <- o .:? "cover" .!= ""
     dfolder_   <- o .: "folder"
     -- dnotes_    <- o .: "notes"
-    return $ Release daid_ dtitle_ dartists_ dreleased_ dadded_ dcover_ dfolder_ -- dnotes_
+    return $ FJRelease ( Release daid_ dtitle_ dartists_ dreleased_ dadded_ dcover_ dfolder_ [] Nothing ) -- dnotes_
 
 data DLists
   = DLists
@@ -63,11 +55,11 @@ instance FromJSON DLists where
 
 readReleases :: FilePath -> IO [ Release ]
 readReleases fn =do
-    d <- (eitherDecode <$> readFileLBS fn) :: IO (Either String [Release])
-    case d of
+    ds <- (eitherDecode <$> readFileLBS fn) :: IO (Either String [FJRelease])
+    case ds of
       Left err -> putTextLn $ toText err
       Right _ -> pure () -- print $ drop (length ds-4) ds
-    return $ fromRight [] d
+    return $ unFJRelease <$> fromRight [] ds
 
 
 readLists :: IO ( M.Map Text ( Int, Vector Int ) )

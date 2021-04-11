@@ -1,8 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
 
-module Provider ( Album (..)
-                , Tidal (..)
-                , FT.TidalInfo (..)
+module Provider ( Tidal (..)
                 , Discogs (..)
                 , FD.DiscogsInfo (..)
                 , readListAids
@@ -15,12 +13,11 @@ module Provider ( Album (..)
                 ) where
 import Relude
 
-import FromJSON ( Release (..) )
 import qualified FromJSON as FJ ( readReleases
                                 , readLists
                                 , readFolders
                                 )
-import qualified FromTidal as FT ( readTidalReleases, TidalInfo (..) )
+import qualified FromTidal as FT ( readTidalReleases )
 import qualified FromDiscogs as FD ( readDiscogsReleases
                                    , readDiscogsLists
                                    , readListAids
@@ -28,42 +25,26 @@ import qualified FromDiscogs as FD ( readDiscogsReleases
                                    , refreshLists
                                    , DiscogsInfo (..)
                                    )
+
+import Types ( Album (..),  Release (..), TidalInfo (..), TagFolder (..)  )
 -- import Data.Text.Encoding ( decodeUtf8 )
-import qualified Text.Show
 import qualified Data.Map.Strict as M
 import Data.Vector ( Vector )
 import qualified Data.Vector as V
 
 import qualified Data.Text as T
 
-
-data Album
-  = Album
-  { albumID       :: Int
-  , albumTitle    :: Text
-  , albumArtist   :: Text
-  , albumReleased :: Text
-  , albumCover    :: Text
-  , albumAdded    :: Text
-  , albumFolder   :: Int
-  , albumURL      :: Album -> Text
-  }
-instance Eq Album where
-  (==) a b = albumID a == albumID b
-instance Show Album where
-  show a = "Album {albumID = " ++ show (albumID a) ++ ", albumTitle =" ++ show (albumTitle a) ++ "}"
-
 atest :: [ Album ]
-atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-01-01T18:01:42-08:00" 1349997 (const "https://www.tidal.com/album/161314")
-         , Album 5253301 "Beethoven - Symphonie Nr. 3 »Eroica« & 4" "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" 1351871  (const "https://www.tidal.com/album/5253301")
+atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-01-01T18:01:42-08:00" 1349997 (const "https://www.tidal.com/album/161314") "Vinyl" Nothing
+         , Album 5253301 "Beethoven - Symphonie Nr. 3 »Eroica« & 4" "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" 1351871  (const "https://www.tidal.com/album/5253301") "Vinyl" Nothing
          ]
 
 class Provider p where
   readAlbums :: p -> IO (Vector Album)
   readLists :: p ->  IO ( Map Text (Int, Vector Int ) )
 
-newtype Tidal = Tidal FT.TidalInfo
-getTidal :: Tidal -> FT.TidalInfo
+newtype Tidal = Tidal TidalInfo
+getTidal :: Tidal -> TidalInfo
 getTidal (Tidal ti) = ti
 
 newtype Discogs = Discogs FD.DiscogsInfo deriving Show
@@ -78,20 +59,22 @@ instance Provider Tidal where
               T.pack "https://resources.tidal.com/images/"
             , T.intercalate "/" $ T.splitOn "-" (dcover r)
             , T.pack "/320x320.jpg" ]
-        toFolder = 2
         getAlbumURL :: Album -> Text
         getAlbumURL a = T.pack $
-            "https://www.tidal.com/album/" ++ show ( albumID a )
+            "https://listen.tidal.com/album/" ++ show ( albumID a )
         toAlbum r = Album (daid r)
                           (dtitle r)
                           (T.intercalate ", " $ dartists r)
                           (dreleased r)
                           (toCoverURL r)
                           (dadded r)
-                          toFolder
+                          ( fromEnum TTidal )
                           getAlbumURL
+                          "Tidal"
+                          Nothing
+
     ds <- case getTidal p of
-          FT.TidalFile fn -> FJ.readReleases fn
+          TidalFile fn -> FJ.readReleases fn
           _ -> FT.readTidalReleases (getTidal p)
     let as  = toAlbum <$> ds
 
@@ -108,17 +91,7 @@ instance Provider Discogs where
   readAlbums p = do
     let
         toCoverURL r = dcover r
-        toFolder r = dfolder r -- fromMaybe "Nothing" $ M.lookup (dfolder r) fm
-          where fm :: Map Int Text
-                fm = M.fromList [ ( 1349997, "Pop" )
-                                , ( 1351871, "Symphonic" )
-                                , ( 1351873, "Concertos" )
-                                , ( 1351869, "Piano" )
-                                , ( 1350005, "Opera&Vocal" )
-                                , ( 1351883, "Chamber" )
-                                , ( 1254070, "Basement" )
-                                , ( 2,       "Tidal" )
-                                ]
+        toFolder r = dfolder r
         getAlbumURL a = T.pack $
             "https://www.discogs.com/release/" ++ show ( albumID a )
         toAlbum r = Album (daid r)
@@ -129,6 +102,8 @@ instance Provider Discogs where
                           (dadded r)
                           (toFolder r)
                           getAlbumURL
+                          (T.intercalate ", " $ dformat r)
+                          (dtidalurl r)
         -- fn = "data/dall.json"
 
     ds <- case getDiscogs p of
@@ -159,21 +134,21 @@ readFolderAids fm am = fam where
   -- 0: all discogs
   -- 1: uncategorized
   fam'  = M.map getFolder fm
-  fam = M.insert "Tidal"   (2, allTidal)
-      $ M.insert "Discogs" (0, allDiscogs)
-      $ M.insert "All"     (3, allAlbums)
+  fam = M.insert "Tidal"   (fromEnum TTidal, allTidal)
+      $ M.insert "Discogs" (fromEnum TDiscogs, allDiscogs)
+      $ M.insert "All"     (fromEnum TAll, allAlbums)
         fam'
   allAlbums = sAdded
             $ V.map albumID
             $ V.fromList $ M.elems am
   allDiscogs = sAdded
               $ V.map fst
-              $ V.filter (\ (_,f) -> f/=2)
+              $ V.filter (\ (_,f) -> f/=fromEnum TTidal)
               $ V.map (\a -> (albumID a, albumFolder a))
                $ V.fromList $ M.elems am
   allTidal = sAdded
            $ V.map fst
-           $ V.filter (\ (_,f) -> f==2)
+           $ V.filter (\ (_,f) -> f==fromEnum TTidal)
            $ V.map (\a -> (albumID a, albumFolder a))
            $ V.fromList $ M.elems am
 
