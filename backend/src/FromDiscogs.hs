@@ -389,4 +389,3 @@ refreshLists di = do
       lm = (\ WList {id=i, name=n} -> ( n, ( i, V.empty ))) <$> ls
   return $ M.fromList lm
 
-  -- return ( M.singleton "Listened" undefined )

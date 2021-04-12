@@ -71,7 +71,7 @@ instance Provider Tidal where
                           ( fromEnum TTidal )
                           getAlbumURL
                           "Tidal"
-                          Nothing
+                          (Just (fromString "https://listen.tidal.com/album/" <> show ( daid r )))
 
     ds <- case getTidal p of
           TidalFile fn -> FJ.readReleases fn
