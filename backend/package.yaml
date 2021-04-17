@@ -3,7 +3,7 @@ version:             0.1.0.0
 github:              "LATBauerdick/backend"
 license:             BSD3
 author:              "LATBauerdick"
-maintainer:          "gitbub@bauerdick.org"
+maintainer:          "github@bauerdick.org"
 copyright:           "2021 LATBauerdick"
 
 extra-source-files:
@@ -43,7 +43,7 @@ dependencies:
 
 library:
   source-dirs: src
-  ghc-options: -Wall -fno-warn-unused-binds
+  ghc-options: -Wall -fno-warn-unused-binds -fwrite-ide-info -hiedir=.hie
 
 executables:
   backend-exe:

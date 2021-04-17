@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 472e76b47cb4e8688ca1c04a55fe472d02d16c7e7133b0100cb04082d2f684e3
+-- hash: 342088cee1a9575f03dcc2de2d9090100195ae4419e356bcac4852c1ed7823b0
 
 name:           backend
 version:        0.1.0.0
@@ -14,7 +14,7 @@ category:       Web
 homepage:       https://github.com/LATBauerdick/backend#readme
 bug-reports:    https://github.com/LATBauerdick/backend/issues
 author:         LATBauerdick
-maintainer:     gitbub@bauerdick.org
+maintainer:     github@bauerdick.org
 copyright:      2021 LATBauerdick
 license:        BSD3
 license-file:   LICENSE
@@ -44,7 +44,7 @@ library
   default-extensions:
       NoImplicitPrelude
       OverloadedStrings
-  ghc-options: -Wall -fno-warn-unused-binds
+  ghc-options: -Wall -fno-warn-unused-binds -fwrite-ide-info -hiedir=.hie
   build-depends:
       aeson
     , base >=4.7 && <5
