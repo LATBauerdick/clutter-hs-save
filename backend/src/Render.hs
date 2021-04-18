@@ -12,11 +12,10 @@ import qualified Data.Foldable as F
 import qualified Data.Map.Strict as M
 import Data.Vector (Vector)
 import qualified Data.Vector as V (toList)
-import Env (Env (..))
 import qualified Lucid as L
 import Relude
 import Text.RawString.QQ
-import Types (Album (..), TagFolder (..))
+import Types (Env (..), Album (..), TagFolder (..), SortOrder (..))
 
 renderAlbum :: Maybe Album -> L.Html ()
 renderAlbum mAlbum = L.html_ $ do
@@ -41,22 +40,22 @@ renderAlbum mAlbum = L.html_ $ do
         L.p_ $ L.toHtml ("Year: " <> albumReleased a)
         L.br_ []
 
-renderAlbums :: Env -> Map Int Album -> Vector Int -> Vector Text -> Text -> Text -> L.Html ()
-renderAlbums env am aids lns ln sn =
+renderAlbums :: Env -> Map Int Album -> Vector Int -> Vector Text -> Text -> Text -> SortOrder -> L.Html ()
+renderAlbums env am aids lns ln sn so =
   -- L.doctype_ "html"
   L.html_ $ do
     renderHead $ "Albums - " <> ln
     L.body_ albumBody
   where
     albumBody = do
-      renderLeftMenu env lns ln sn
+      renderLeftMenu env lns ln sn so
       -- grid of Albums
       L.div_ [L.class_ "albums"] $ do
         L.div_ [L.class_ "row"] $ do
           renderTNs am aids
 
-renderLeftMenu :: Env -> Vector Text -> Text -> Text -> L.Html ()
-renderLeftMenu env lns ln sn =
+renderLeftMenu :: Env -> Vector Text -> Text -> Text -> SortOrder -> L.Html ()
+renderLeftMenu env lns ln sn so =
   L.ul_ $ do
     L.li_ $ L.a_ [L.class_ "active", L.href_ (url env <> "albums/All")] "Home"
     L.li_ [L.class_ "dropdown"] $ do
@@ -64,21 +63,26 @@ renderLeftMenu env lns ln sn =
         L.toHtml ("List " <> ln <> " ")
         L.i_ [ L.class_ "fa fa-caret-down" ] ""
       L.div_ [L.class_ "dropdown-content"] $ do
-        F.traverse_ addLink lns
+        F.traverse_ (addLink "albums/") lns
 
     L.li_ [L.class_ "dropdown"] $ do
-      L.a_ [L.class_ "dropbtn", L.href_ "javascript:void(0)"] $ do
-        L.toHtml $ "Sort by " <> sn <> " "
-        L.i_ [ L.class_ "fa fa-caret-down" ] ""
+      let sso = case so of
+                  Asc  -> Desc
+                  Desc -> Asc
+      L.a_ [L.class_ "dropbtn", L.href_ (url env <> "albums/" <> ln <> "?sortOrder=" <> show sso )] $ do
+        L.toHtml $ "Sort by  " <> sn <> " "
+        case so of
+          Asc  -> L.i_ [ L.class_ "fa fa-caret-down" ] ""
+          Desc -> L.i_ [ L.class_ "fa fa-caret-up" ] ""
       L.div_ [L.class_ "dropdown-content"] $ do
-        F.traverse_ addLink (sorts env)
+        F.traverse_ (addLink ("albums/" <> ln <> "?sortBy=")) (sorts env)
 
     L.li_ $ L.a_ [L.href_ (url env)] "index"
   where
-    addLink :: Text -> L.Html ()
-    addLink t =
-      L.a_ [L.href_ (url env <> "albums/" <> t)] $ do
-        L.toHtml t
+    addLink :: Text -> Text -> L.Html ()
+    addLink t0 t1 =
+      L.a_ [L.href_ (url env <> t0 <> t1)] $ do
+        L.toHtml t1
 
 renderTNs :: Map Int Album -> Vector Int -> L.Html ()
 renderTNs am aids =

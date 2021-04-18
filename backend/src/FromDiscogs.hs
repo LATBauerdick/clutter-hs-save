@@ -10,11 +10,10 @@ module FromDiscogs ( refreshLists
                    , readDiscogsLists
                    , readListAids
                    , readDiscogsFolders
-                   , DiscogsInfo (..)
                    ) where
 import Relude
 
-import Types ( Release (..) )
+import Types ( Release (..), DiscogsInfo (..) )
 
 import qualified Data.Map as M
 import Data.Vector ( Vector )
@@ -211,8 +210,6 @@ discogsAPI = Proxy
 
 getReleases :<|> getFolders :<|> getLists :<|> getList = client discogsAPI
 
-data DiscogsInfo = DiscogsFile FilePath | DiscogsSession Text Text
-  deriving Show
 --
 -- ToDo:
 --   get list and folder names/ids first

@@ -4,10 +4,7 @@
 
 
 module Env
-    ( Env (..)
-    -- , DToken
-    -- , testEnv
-    , refreshEnv
+    ( refreshEnv
     , initEnv
     ) where
 import Relude
@@ -15,6 +12,7 @@ import Relude
 import Data.Vector ( Vector )
 import qualified Data.Vector as V ( fromList
                                   , toList
+                                  , reverse
                                   , null
                                   , empty
                                   )
@@ -22,31 +20,18 @@ import qualified Data.Vector as V ( fromList
 -- import Data.Ord (comparing)
 import qualified Data.Map.Strict as M
 
-import Types ( Album (..), TidalInfo (..) )
+import Types ( Album (..), TidalInfo (..), SortOrder (..), Env (..)
+             , Tidal (..)
+             , Discogs (..), DiscogsInfo (..)
+             )
 
-import Provider ( Tidal (..)
-                , Discogs (..)
-                , DiscogsInfo (..)
-                , readAlbums
+import Provider ( readAlbums
                 , readLists
                 , readListAids
                 , readFolders
                 , readFolderAids
                 , refreshLists
                 )
-
-data Env
-  = Env
-  { albums      :: IORef ( Map Int Album )
-  , listNames   :: IORef ( Vector Text )
-  , lists       :: IORef ( Map Text (Int, Vector Int) )
-  , sortName    :: IORef Text
-  , sorts       :: Vector Text
-  , url         :: Text
-  , discogs     :: IORef Discogs
-  , getList     :: Env -> Text -> IO ( Vector Int )
-  , getSort     :: Map Int Album -> Text -> ( Vector Int -> Vector Int )
-  }
 
 -- testAlbum :: Album
 -- testAlbum = Album 123123
@@ -102,6 +87,7 @@ getEnv (Just env) (Just discogs') = do
   _ <- writeIORef ( listNames env ) ( V.fromList . M.keys $ allLists )
   _ <- writeIORef ( discogs env ) discogs'
   _ <- writeIORef ( sortName env ) "Default"
+  _ <- writeIORef ( sortOrder env ) Asc
   return env
 
 envFromFiles :: IO Env
@@ -152,26 +138,37 @@ envFromFiles = do
         (\ a -> (albumID a, a)) <$> V.toList ( vda <> vta )
 
 -- define sort functions and map to names
-  let sDef :: Map Int Album -> Vector Int -> Vector Int
-      sDef _ l = l
-  let sTitle :: Map Int Album -> Vector Int -> Vector Int
-      sTitle am aids = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumTitle) a b ) asi ) where
-        asi :: [ ( Int, Maybe Album ) ]
-        asi =  map ( \aid -> ( aid, M.lookup aid am ) ) $ V.toList aids
-  let sArtist :: Map Int Album -> Vector Int -> Vector Int
-      sArtist am aids = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumArtist) a b ) asi ) where
-        asi =  map ( \aid -> ( aid, M.lookup aid am ) ) $ V.toList aids
-  let sAdded :: Map Int Album -> Vector Int -> Vector Int
-      sAdded am aids = V.fromList ( fst <$> sortBy ( \ (_,a) (_,b) -> comparing ( fmap albumAdded) b a ) asi ) where
-        asi =  map ( \aid -> ( aid, M.lookup aid am ) ) $ V.toList aids
-  let sfs :: Map Text (Map Int Album -> Vector Int -> Vector Int) -- sort functions
+  let sDef :: Map Int Album -> SortOrder -> Vector Int -> Vector Int
+      sDef _ so l = case so of
+                      Asc -> l
+                      _ -> V.reverse l
+  let sortAsi :: Map Int Album -> Vector Int -> [ ( Int, Maybe Album ) ]
+      sortAsi am =  map ( \aid -> ( aid, M.lookup aid am ) ) . V.toList
+      compareAsc  f (_,a) (_,b) = comparing f a b
+      compareDesc f (_,a) (_,b) = comparing f b a
+  let sTitle :: Map Int Album -> SortOrder -> Vector Int -> Vector Int
+      sTitle am so aids = V.fromList ( fst <$> sortBy (comp so) (sortAsi am aids)) where
+        comp o = case o of
+                   Asc  -> compareAsc (fmap albumTitle)
+                   Desc -> compareDesc (fmap albumTitle)
+  let sArtist :: Map Int Album -> SortOrder -> Vector Int -> Vector Int
+      sArtist am so aids = V.fromList ( fst <$> sortBy (comp so) (sortAsi am aids)) where
+        comp o = case o of
+                   Asc  -> compareAsc (fmap albumArtist)
+                   Desc -> compareDesc (fmap albumArtist)
+  let sAdded :: Map Int Album -> SortOrder -> Vector Int -> Vector Int
+      sAdded am so aids = V.fromList ( fst <$> sortBy (comp so) (sortAsi am aids)) where
+        comp o = case o of
+                   Asc  -> compareDesc (fmap albumAdded)
+                   Desc -> compareAsc (fmap albumAdded)
+  let sfs :: Map Text (Map Int Album -> SortOrder -> Vector Int -> Vector Int) -- sort functions
       sfs = M.fromList [ ( "Default", sDef    )
                        , ( "Artist",  sArtist )
                        , ( "Title",   sTitle  )
                        , ( "Added",   sAdded  )
                        ]
 
-      getSort' :: Map Int Album -> Text -> (Vector Int -> Vector Int)
+      getSort' :: Map Int Album -> Text -> (SortOrder -> Vector Int -> Vector Int)
       getSort' am sn = fromMaybe sDef (M.lookup sn sfs) am
 
       sorts' :: Vector Text
@@ -193,10 +190,12 @@ envFromFiles = do
   dr <- newIORef dc
   ar <- newIORef albums'
   sr <- newIORef "Default"
+  so <- newIORef Asc
   return Env { discogs = dr
              , albums = ar, lists = lr
              , listNames = lnr
              , sortName = sr
+             , sortOrder = so
              , sorts = sorts'
              , url = "/"
              , getList = getList'

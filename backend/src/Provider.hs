@@ -1,9 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
 
-module Provider ( Tidal (..)
-                , Discogs (..)
-                , FD.DiscogsInfo (..)
-                , readListAids
+module Provider ( readListAids
                 , readAlbums
                 , readLists
                 , readFolders
@@ -23,10 +20,12 @@ import qualified FromDiscogs as FD ( readDiscogsReleases
                                    , readListAids
                                    , readDiscogsFolders
                                    , refreshLists
-                                   , DiscogsInfo (..)
                                    )
 
-import Types ( Album (..),  Release (..), TidalInfo (..), TagFolder (..)  )
+import Types ( Album (..),  Release (..)
+             , Tidal (..), TidalInfo (..), getTidal
+             , Discogs (..), DiscogsInfo (..), getDiscogs
+             , TagFolder (..)  )
 -- import Data.Text.Encoding ( decodeUtf8 )
 import qualified Data.Map.Strict as M
 import Data.Vector ( Vector )
@@ -42,14 +41,6 @@ atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-0
 class Provider p where
   readAlbums :: p -> IO (Vector Album)
   readLists :: p ->  IO ( Map Text (Int, Vector Int ) )
-
-newtype Tidal = Tidal TidalInfo
-getTidal :: Tidal -> TidalInfo
-getTidal (Tidal ti) = ti
-
-newtype Discogs = Discogs FD.DiscogsInfo deriving Show
-getDiscogs :: Discogs -> FD.DiscogsInfo
-getDiscogs (Discogs di) = di
 
 instance Provider Tidal where
   readLists _ = error "Bug: Provider Tidal has no lists"
@@ -86,7 +77,7 @@ instance Provider Tidal where
 
 instance Provider Discogs where
   readLists p = case getDiscogs p of
-                  FD.DiscogsFile _ -> FJ.readLists
+                  DiscogsFile _ -> FJ.readLists
                   _ -> FD.readDiscogsLists (getDiscogs p)
   readAlbums p = do
     let
@@ -107,7 +98,7 @@ instance Provider Discogs where
         -- fn = "data/dall.json"
 
     ds <- case getDiscogs p of
-          FD.DiscogsFile fn -> FJ.readReleases fn
+          DiscogsFile fn -> FJ.readReleases fn
           _ -> FD.readDiscogsReleases (getDiscogs p)
 
     let as  = toAlbum <$> ds
@@ -120,12 +111,12 @@ instance Provider Discogs where
 
 readListAids :: Discogs -> Int -> IO ( Vector Int )
 readListAids p i = case getDiscogs p of
-                     FD.DiscogsFile _ -> pure V.empty -- maybe not ok
+                     DiscogsFile _ -> pure V.empty -- maybe not ok
                      _ -> FD.readListAids (getDiscogs p) i
 
 readFolders :: Discogs -> IO ( Map Text Int )
 readFolders p = case getDiscogs p of
-                  FD.DiscogsFile _ -> FJ.readFolders
+                  DiscogsFile _ -> FJ.readFolders
                   _ -> FD.readDiscogsFolders (getDiscogs p)
 
 -- populate the aids for folders from the folder+id in each Album
@@ -167,7 +158,7 @@ readFolderAids fm am = fam where
 
 refreshLists :: Discogs -> IO ( Map Text (Int, Vector Int) )
 refreshLists p = case getDiscogs p of
-                  FD.DiscogsFile fn -> error $ "Bug: Provider Discogs does not refresh lists from files " <> toText fn
+                  DiscogsFile fn -> error $ "Bug: Provider Discogs does not refresh lists from files " <> toText fn
                   _ -> FD.refreshLists (getDiscogs p)
 -- items[].item.type
 -- "SINGLE"
