@@ -94,8 +94,9 @@ server env = serveAlbum
 
           let doSort = getSort env am sn
           let aids = doSort so aids'
+          lm <- liftIO ( readIORef (lists env) )
           return $ RawHtml
-                $ L.renderBS ( renderAlbums env am aids lns list sn so )
+                $ L.renderBS ( renderAlbums env am lm aids lns list sn so )
         -- serveJSON :: Server API2
         -- serveJSON = do
         --   return $ M.elems ( albums env )
@@ -106,7 +107,8 @@ server env = serveAlbum
           am <- liftIO ( readIORef (albums env) )
           aids <- liftIO ( getList env env "Discogs" )
           lns <- liftIO ( readIORef (listNames env ) )
-          return $ RawHtml $ L.renderBS ( renderAlbums env am aids lns "Discogs" "Default" Asc )
+          lm <- liftIO ( readIORef (lists env) )
+          return $ RawHtml $ L.renderBS ( renderAlbums env am lm aids lns "Discogs" "Default" Asc )
 
         serveTidal :: Text -> Text -> Handler RawHtml
         serveTidal token username = do
@@ -114,7 +116,8 @@ server env = serveAlbum
           am <- liftIO ( readIORef (albums env) )
           aids <- liftIO ( getList env env "Tidal" )
           lns <- liftIO ( readIORef (listNames env ) )
-          return $ RawHtml $ L.renderBS ( renderAlbums env am aids lns "Tidal" "Default" Asc )
+          lm <- liftIO ( readIORef (lists env) )
+          return $ RawHtml $ L.renderBS ( renderAlbums env am lm aids lns "Tidal" "Default" Asc )
 
 
 -- type App = ReaderT Env IO

@@ -61,6 +61,7 @@ data Release
   , dfolder   :: Int
   , dformat   :: [Text]
   , dtidalurl :: Maybe Text
+  , dlocation :: Maybe Text
   } deriving (Show)
 
 data Album
@@ -75,6 +76,7 @@ data Album
   , albumURL      :: Album -> Text
   , albumFormat   :: Text
   , albumTidal    :: Maybe Text
+  , albumLocation :: Maybe Text
   }
 instance Eq Album where
   (==) a b = albumID a == albumID b

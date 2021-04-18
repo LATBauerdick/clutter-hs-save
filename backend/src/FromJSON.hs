@@ -40,7 +40,7 @@ instance FromJSON FJRelease where
     dcover_    <- o .:? "cover" .!= ""
     dfolder_   <- o .: "folder"
     -- dnotes_    <- o .: "notes"
-    return $ FJRelease ( Release daid_ dtitle_ dartists_ dreleased_ dadded_ dcover_ dfolder_ [] Nothing ) -- dnotes_
+    return $ FJRelease ( Release daid_ dtitle_ dartists_ dreleased_ dadded_ dcover_ dfolder_ [] Nothing Nothing ) -- dnotes_
 
 data DLists
   = DLists

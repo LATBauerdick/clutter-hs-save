@@ -40,8 +40,8 @@ renderAlbum mAlbum = L.html_ $ do
         L.p_ $ L.toHtml ("Year: " <> albumReleased a)
         L.br_ []
 
-renderAlbums :: Env -> Map Int Album -> Vector Int -> Vector Text -> Text -> Text -> SortOrder -> L.Html ()
-renderAlbums env am aids lns ln sn so =
+renderAlbums :: Env -> Map Int Album -> Map Text (Int, Vector Int) -> Vector Int -> Vector Text -> Text -> Text -> SortOrder -> L.Html ()
+renderAlbums env am lm aids lns ln sn so =
   -- L.doctype_ "html"
   L.html_ $ do
     renderHead $ "Albums - " <> ln
@@ -52,7 +52,7 @@ renderAlbums env am aids lns ln sn so =
       -- grid of Albums
       L.div_ [L.class_ "albums"] $ do
         L.div_ [L.class_ "row"] $ do
-          renderTNs am aids
+          renderTNs env am aids
 
 renderLeftMenu :: Env -> Vector Text -> Text -> Text -> SortOrder -> L.Html ()
 renderLeftMenu env lns ln sn so =
@@ -84,12 +84,12 @@ renderLeftMenu env lns ln sn so =
       L.a_ [L.href_ (url env <> t0 <> t1)] $ do
         L.toHtml t1
 
-renderTNs :: Map Int Album -> Vector Int -> L.Html ()
-renderTNs am aids =
-  F.traverse_ renderAlbumTN $ mapMaybe (`M.lookup` am) (V.toList aids)
+renderTNs :: Env -> Map Int Album -> Vector Int -> L.Html ()
+renderTNs env am aids = do
+  F.traverse_ (renderAlbumTN env) $ mapMaybe (`M.lookup` am) (V.toList aids)
 
-renderAlbumTN :: Album -> L.Html ()
-renderAlbumTN a =
+renderAlbumTN :: Env -> Album -> L.Html ()
+renderAlbumTN env a =
   L.div_ [L.class_ "album-thumb"] $ do
     L.div_ [L.class_ "cover-container"] $ do
       L.a_ [L.href_ (albumURL a a)] $ do
@@ -108,6 +108,15 @@ renderAlbumTN a =
             Just turl -> L.div_ [L.class_ "cover-obackground1"] $ do
               L.a_ [L.href_ turl] $ do
                 L.img_ [L.src_ "/tidal-icon.png", L.alt_ "T", L.class_ "cover-oimage"]
+          case albumLocation a of
+            Nothing -> ""
+            Just loc -> L.div_ [L.class_ "cover-obackground2"] $ do
+                          L.a_ [L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $ do
+                            L.img_ [L.src_ "/library-icon.png", L.alt_ "L", L.class_ "cover-oimage"]
+              -- case M.lookup loc lm of
+              --   Nothing -> ""
+              --   Just li -> L.a_ [L.href_ ("https://www.discogs.com/lists/" <> show (fst li))] $ do
+              --                L.img_ [L.src_ "/library-icon.png", L.alt_ "L", L.class_ "cover-oimage"]
     L.div_ [L.class_ "album-info"] $ do
       L.p_ [L.class_ "album-title"] $ do
         L.toHtml (albumTitle a)
@@ -328,6 +337,16 @@ p.album-artist {
   border-radius: 4px;
   position: absolute;
   left: 7;
+  bottom: 7;
+  background-color: rgba(255,255,255,.5);
+}
+.cover-obackground2 {
+  width: 24px;
+  height: 24px;
+  padding: 0px;
+  border-radius: 4px;
+  position: absolute;
+  left: 39;
   bottom: 7;
   background-color: rgba(255,255,255,.5);
 }

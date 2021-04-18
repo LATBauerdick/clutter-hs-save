@@ -34,8 +34,8 @@ import qualified Data.Vector as V
 import qualified Data.Text as T
 
 atest :: [ Album ]
-atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-01-01T18:01:42-08:00" 1349997 (const "https://www.tidal.com/album/161314") "Vinyl" Nothing
-         , Album 5253301 "Beethoven - Symphonie Nr. 3 »Eroica« & 4" "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" 1351871  (const "https://www.tidal.com/album/5253301") "Vinyl" Nothing
+atest  = [ Album 161314 "Mezzanine" "Massive Attack" "2001" "161314.jpg" "2018-01-01T18:01:42-08:00" 1349997 (const "https://www.tidal.com/album/161314") "Vinyl" Nothing Nothing
+         , Album 5253301 "Beethoven - Symphonie Nr. 3 »Eroica« & 4" "Herbert von Karajan" "1992" "5253301.jpg" "2017-09-17T20:57:52-07:00" 1351871  (const "https://www.tidal.com/album/5253301") "Vinyl" Nothing Nothing
          ]
 
 class Provider p where
@@ -63,6 +63,7 @@ instance Provider Tidal where
                           getAlbumURL
                           "Tidal"
                           (Just (fromString "https://listen.tidal.com/album/" <> show ( daid r )))
+                          Nothing
 
     ds <- case getTidal p of
           TidalFile fn -> FJ.readReleases fn
@@ -95,6 +96,7 @@ instance Provider Discogs where
                           getAlbumURL
                           (T.intercalate ", " $ dformat r)
                           (dtidalurl r)
+                          (dlocation r)
         -- fn = "data/dall.json"
 
     ds <- case getDiscogs p of

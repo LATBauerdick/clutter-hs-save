@@ -263,6 +263,11 @@ readDiscogsReleases di = do
           turl = case mapMaybe (\ WNote { field_id=i, value=v } -> if i /= 6 then Nothing else Just v) ns of
                   [a] -> Just a
                   _ -> Nothing
+          loc :: Maybe Text
+          loc = case mapMaybe (\ WNote { field_id=i, value=v } -> if i /= 4 then Nothing else Just v) ns of
+                  [""] -> Nothing
+                  [a] -> Just a
+                  _ -> Nothing
           fs = (\ WFormat { name=n } -> n ) <$> dfs
           r = Release  { daid      = did
                        , dtitle    = dt
@@ -272,7 +277,8 @@ readDiscogsReleases di = do
                        , dcover    = dcov
                        , dfolder   = dfolder_id
                        , dformat   = fs
-                       , dtidalurl  = turl
+                       , dtidalurl = turl
+                       , dlocation = loc
                        }
 
   let rs = case res of

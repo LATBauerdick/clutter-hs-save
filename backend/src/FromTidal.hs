@@ -141,6 +141,7 @@ readTidalReleases tinf = do
                        , dfolder   = fromEnum TTidal
                        , dformat   = ["Tidal"]
                        , dtidalurl = Nothing
+                       , dlocation = Nothing
                        }
 
       rs = case res of
