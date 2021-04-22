@@ -1,7 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude, OverloadedStrings #-}
 
-module Types ( Tidal (..), getTidal
-             , Discogs (..), getDiscogs
+module Types ( Tidal (..)
+             , Discogs (..)
              , DiscogsInfo (..)
              , TagFolder (..)
              , TidalInfo (..)
@@ -28,24 +28,21 @@ instance ATags TagFolder where
 data SortOrder = Asc | Desc
   deriving (Enum, Read, Show, Eq, Ord)
 
-newtype Tidal = Tidal TidalInfo
-getTidal :: Tidal -> TidalInfo
-getTidal (Tidal ti) = ti
+newtype Tidal = Tidal { getTidal :: TidalInfo }
 
-newtype Discogs = Discogs DiscogsInfo deriving Show
-getDiscogs :: Discogs -> DiscogsInfo
-getDiscogs (Discogs di) = di
+newtype Discogs = Discogs { getDiscogs :: DiscogsInfo } deriving Show
 
 data Env
   = Env
-  { albums      :: IORef ( Map Int Album )
-  , listNames   :: IORef ( Vector Text )
-  , lists       :: IORef ( Map Text (Int, Vector Int) )
-  , sortName    :: IORef Text
-  , sortOrder   :: IORef SortOrder
+  { albumsR     :: IORef ( Map Int Album )
+  , listNamesR  :: IORef ( Vector Text )
+  , listsR      :: IORef ( Map Text (Int, Vector Int) )
+  , locsR       :: IORef ( Map Int (Text, Int) )  -- lookup (location, pos) by from albumID
+  , sortNameR   :: IORef Text
+  , sortOrderR  :: IORef SortOrder
+  , discogsR    :: IORef Discogs
   , sorts       :: Vector Text
   , url         :: Text
-  , discogs     :: IORef Discogs
   , getList     :: Env -> Text -> IO ( Vector Int )
   , getSort     :: Map Int Album -> Text -> (SortOrder -> Vector Int -> Vector Int )
   }
@@ -62,6 +59,8 @@ data Release
   , dformat   :: [Text]
   , dtidalurl :: Maybe Text
   , dlocation :: Maybe Text
+  , drating   :: Int
+  , dplays    :: Int
   } deriving (Show)
 
 data Album
@@ -77,6 +76,8 @@ data Album
   , albumFormat   :: Text
   , albumTidal    :: Maybe Text
   , albumLocation :: Maybe Text
+  , albumRating   :: Int
+  , albumPlays    :: Int
   }
 instance Eq Album where
   (==) a b = albumID a == albumID b

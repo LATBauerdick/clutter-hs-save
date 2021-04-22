@@ -142,6 +142,8 @@ readTidalReleases tinf = do
                        , dformat   = ["Tidal"]
                        , dtidalurl = Nothing
                        , dlocation = Nothing
+                       , drating = 0
+                       , dplays = 0
                        }
 
       rs = case res of

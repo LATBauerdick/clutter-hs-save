@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module FromDiscogs ( refreshLists
+module FromDiscogs ( rereadLists
                    , readDiscogsReleases
                    , readDiscogsLists
                    , readListAids
@@ -58,6 +58,7 @@ data WReleases = WReleases { pagination :: WPagination
 data WRelease = WRelease { id :: Int
                          , date_added :: !Text
                          , folder_id :: Int
+                         , rating :: Int
                          , basic_information :: WBasicInfo
                          , notes :: [WNote]
                          } deriving (Show, Generic)
@@ -66,9 +67,10 @@ instance FromJSON WRelease where
     daid_      <- o .: "id"
     dadded_    <- o .: "date_added"
     fid_       <- o .: "folder_id"
+    rating_    <- o .: "rating"
     bi_        <- o .: "basic_information"
     notes_     <- o .:? "notes" .!= []
-    return ( WRelease daid_ dadded_ fid_ bi_ notes_ )
+    return ( WRelease daid_ dadded_ fid_ rating_ bi_ notes_ )
 data WBasicInfo = WBasicInfo { title :: !Text
                              , year :: Int
                              , cover_image :: !Text
@@ -249,6 +251,7 @@ readDiscogsReleases di = do
           WRelease { id = did
                    , date_added = da
                    , folder_id = dfolder_id
+                   , rating = drat
                    , basic_information =
                        WBasicInfo { title=dt
                                   , year=dyear
@@ -265,9 +268,14 @@ readDiscogsReleases di = do
                   _ -> Nothing
           loc :: Maybe Text
           loc = case mapMaybe (\ WNote { field_id=i, value=v } -> if i /= 4 then Nothing else Just v) ns of
-                  [""] -> Nothing
-                  [a] -> Just a
-                  _ -> Nothing
+                  [""]  -> Nothing
+                  [a]   -> Just a
+                  _     -> Nothing
+          plays :: Int
+          plays = case mapMaybe (\ WNote { field_id=i, value=v } -> if i /= 7 then Nothing else Just v) ns of
+                    [""]  -> 0
+                    [a]   -> fromMaybe 0 (readMaybe . toString $ a)
+                    _     -> 0
           fs = (\ WFormat { name=n } -> n ) <$> dfs
           r = Release  { daid      = did
                        , dtitle    = dt
@@ -276,9 +284,11 @@ readDiscogsReleases di = do
                        , dadded    = da
                        , dcover    = dcov
                        , dfolder   = dfolder_id
+                       , drating   = drat
                        , dformat   = fs
                        , dtidalurl = turl
                        , dlocation = loc
+                       , dplays    = plays
                        }
 
   let rs = case res of
@@ -332,8 +342,8 @@ readDiscogsFolders di = do
 
 -- for each Discog list, read the lists of album ids from JSON
 -- we're treating Discog folders like lists,
--- also assuming that their IDs arf unique
--- NB: the JSON required to extract album id info ir different between them
+-- also assuming that their IDs are unique
+-- NB: the JSON required to extract album id info is different between them
 readListAids :: DiscogsInfo -> Int -> IO ( Vector Int )
 readListAids di i = do
   let DiscogsSession tok _ = di
@@ -347,40 +357,16 @@ readListAids di i = do
                 -- F.traverse_ print $ take 5 . wlitems $ ls
   let aids  = wlaid <$> V.fromList ( wlitems ( fromRight (WLItems []) res ))
   return aids
---
--- for a Discog folder_id, get the lists of album ids from Discogs
---
--- readFolderAids :: DiscogsInfo -> Int -> IO ( Vector Int )
--- readFolderAids di i = do
---   let DiscogsSession tok un = di
---   m <- newManager tlsManagerSettings
---   let dc = mkClientEnv m discogsBaseUrl
---   putTextLn $ "-----------------Getting Folder " <> show i <> " from Discogs-----"
---   res <- runClientM ( getFolder un i ( Just tok ) userAgent ) dc
---   case res of
---           Left err -> putTextLn $ "Error: " <> show err
---           Right _ -> pure ()
---   let getRs :: WReleases' -> [Int]
---       getRs r = is where
---               geti :: WRelease' ->Int
---               geti r = i
---                       where WRelease' {id=i} = r
---               WReleases' { releases=rs } = r
---               is = geti <$> rs
---   let is = case res of
---               Left _ -> []
---               Right r -> getRs r
---   return ( V.fromList is )
---
---
-refreshLists :: DiscogsInfo -> IO ( Map Text (Int, Vector Int) )
-refreshLists di = do
+
+
+rereadLists :: DiscogsInfo -> IO ( Map Text (Int, Vector Int) )
+rereadLists di = do
   let DiscogsSession tok un = di
   m <- newManager tlsManagerSettings  -- defaultManagerSettings
   let dc = mkClientEnv m discogsBaseUrl
   let query :: ClientM WLists
       query = getLists un (Just tok) userAgent
-  putTextLn "-----------------Refreshing Lists from Discogs-----"
+  putTextLn "-----------------rereading Lists from Discogs-----"
   res <- runClientM query dc
   case res of
     Left err -> putTextLn $ "Error: " <> show err
@@ -388,7 +374,8 @@ refreshLists di = do
   let ls = case res of
         Left _ -> []
         Right wls -> lists wls
-  let lm :: [ ( Text, (Int, Vector Int) ) ]
-      lm = (\ WList {id=i, name=n} -> ( n, ( i, V.empty ))) <$> ls
-  return $ M.fromList lm
+  -- map with all lists
+  let lm :: Map Text (Int, Vector Int)
+      lm = M.fromList . map (\ WList {id=i, name=n} -> ( n, ( i, V.empty ))) $ ls
+  return lm
 

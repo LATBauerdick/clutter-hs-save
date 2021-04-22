@@ -11,11 +11,11 @@ where
 import qualified Data.Foldable as F
 import qualified Data.Map.Strict as M
 import Data.Vector (Vector)
-import qualified Data.Vector as V (toList)
+import qualified Data.Vector as V
 import qualified Lucid as L
 import Relude
 import Text.RawString.QQ
-import Types (Env (..), Album (..), TagFolder (..), SortOrder (..))
+import Types (Env (..), Album (..), SortOrder (..))
 
 renderAlbum :: Maybe Album -> L.Html ()
 renderAlbum mAlbum = L.html_ $ do
@@ -40,8 +40,8 @@ renderAlbum mAlbum = L.html_ $ do
         L.p_ $ L.toHtml ("Year: " <> albumReleased a)
         L.br_ []
 
-renderAlbums :: Env -> Map Int Album -> Map Text (Int, Vector Int) -> Vector Int -> Vector Text -> Text -> Text -> SortOrder -> L.Html ()
-renderAlbums env am lm aids lns ln sn so =
+renderAlbums :: Env -> Map Int Album -> Map Text (Int, Vector Int) -> Map Int (Text, Int) -> Vector Int -> Vector Text -> Text -> Text -> SortOrder -> L.Html ()
+renderAlbums env am lm locs aids lns ln sn so =
   -- L.doctype_ "html"
   L.html_ $ do
     renderHead $ "Albums - " <> ln
@@ -52,44 +52,63 @@ renderAlbums env am lm aids lns ln sn so =
       -- grid of Albums
       L.div_ [L.class_ "albums"] $ do
         L.div_ [L.class_ "row"] $ do
-          renderTNs env am aids
+          renderTNs env am lm ln aids
 
 renderLeftMenu :: Env -> Vector Text -> Text -> Text -> SortOrder -> L.Html ()
 renderLeftMenu env lns ln sn so =
   L.ul_ $ do
+    let pLoc :: Text -> Bool  -- lists with location info
+        pLoc n = case viaNonEmpty head . words $ n of
+                  Just "Cube"   -> True
+                  Just "Shelf"  -> True
+                  _             -> False
+
     L.li_ $ L.a_ [L.class_ "active", L.href_ (url env <> "albums/All")] "Home"
+
     L.li_ [L.class_ "dropdown"] $ do
       L.a_ [L.class_ "dropbtn", L.href_ "javascript:void(0)"] $do
-        L.toHtml ("List " <> ln <> " ")
+        let t:: Text; t = if pLoc ln then "List " else "List " <> ln <> " "
+        L.toHtml t
         L.i_ [ L.class_ "fa fa-caret-down" ] ""
       L.div_ [L.class_ "dropdown-content"] $ do
-        F.traverse_ (addLink "albums/") lns
+        F.traverse_ (addLink "albums/") $ V.filter (not . pLoc) lns
+
+    L.li_ [L.class_ "dropdown"] $ do
+      L.a_ [L.class_ "dropbtn", L.href_ "javascript:void(0)"] $do
+        let t:: Text; t = if not (pLoc ln) then "Location " else "Location " <> ln <> " "
+        L.toHtml t
+        L.i_ [ L.class_ "fa fa-caret-down" ] ""
+      L.div_ [L.class_ "dropdown-content"] $ do
+        F.traverse_ (addLink "albums/") $ V.filter pLoc lns
 
     L.li_ [L.class_ "dropdown"] $ do
       let sso = case so of
                   Asc  -> Desc
                   Desc -> Asc
       L.a_ [L.class_ "dropbtn", L.href_ (url env <> "albums/" <> ln <> "?sortOrder=" <> show sso )] $ do
-        L.toHtml $ "Sort by  " <> sn <> " "
+        let txt :: Text; txt = "Sort "
+        L.toHtml txt
+        case sn of
+          "Default" -> ""
+          _         -> L.toHtml $ "by " <> sn <> " "
         case so of
-          Asc  -> L.i_ [ L.class_ "fa fa-caret-down" ] ""
-          Desc -> L.i_ [ L.class_ "fa fa-caret-up" ] ""
+          Asc  -> L.i_ [ L.class_ "fa fa-chevron-down" ] ""
+          Desc -> L.i_ [ L.class_ "fa fa-chevron-up" ] ""
       L.div_ [L.class_ "dropdown-content"] $ do
         F.traverse_ (addLink ("albums/" <> ln <> "?sortBy=")) (sorts env)
 
-    L.li_ $ L.a_ [L.href_ (url env)] "index"
   where
     addLink :: Text -> Text -> L.Html ()
     addLink t0 t1 =
       L.a_ [L.href_ (url env <> t0 <> t1)] $ do
         L.toHtml t1
 
-renderTNs :: Env -> Map Int Album -> Vector Int -> L.Html ()
-renderTNs env am aids = do
-  F.traverse_ (renderAlbumTN env) $ mapMaybe (`M.lookup` am) (V.toList aids)
+renderTNs :: Env -> Map Int Album -> Map Text (Int, Vector Int) -> Text -> Vector Int -> L.Html ()
+renderTNs env am lm ln aids = do
+  F.traverse_ (renderAlbumTN env lm ln) $ zip [1..] (mapMaybe (`M.lookup` am) (V.toList aids))
 
-renderAlbumTN :: Env -> Album -> L.Html ()
-renderAlbumTN env a =
+renderAlbumTN :: Env -> Map Text (Int, Vector Int) -> Text -> (Int, Album) -> L.Html ()
+renderAlbumTN env lm ln (i, a) =
   L.div_ [L.class_ "album-thumb"] $ do
     L.div_ [L.class_ "cover-container"] $ do
       L.a_ [L.href_ (albumURL a a)] $ do
@@ -99,10 +118,16 @@ renderAlbumTN env a =
             L.class_ "cover-image"
           ]
         L.div_ [L.class_ "cover-overlay"] $ do
-          if albumFolder a /= fromEnum TTidal then
+          case albumFormat a of
+            "Vinyl" ->
               L.div_ [L.class_ "cover-obackground"] $ do
               L.img_ [ L.src_ "/discogs-icon.png", L.alt_ "D", L.class_ "cover-oimage" ]
-            else ""
+            "Tidal" ->
+              L.div_ [L.class_ "cover-obackground"] $ do
+              L.img_ [ L.src_ "/tidal-icon.png", L.alt_ "T", L.class_ "cover-oimage" ]
+            _ ->
+              L.div_ [L.class_ "cover-obackground"] $ do
+              L.toHtml (albumFormat a)
           case albumTidal a of
             Nothing -> ""
             Just turl -> L.div_ [L.class_ "cover-obackground1"] $ do
@@ -111,12 +136,104 @@ renderAlbumTN env a =
           case albumLocation a of
             Nothing -> ""
             Just loc -> L.div_ [L.class_ "cover-obackground2"] $ do
-                          L.a_ [L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $ do
-                            L.img_ [L.src_ "/library-icon.png", L.alt_ "L", L.class_ "cover-oimage"]
+                          L.a_ [L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $
+                            L.i_ [ L.class_ "fa fa-barcode" ] ""
+                            -- L.img_ [L.src_ "/library-icon.png", L.alt_ "L", L.class_ "cover-oimage"]
+                          L.span_ [L.class_ "loctext"] $ do
+                            -- let listLoc :: Map Text (Int, Vector Int) -> Text -> Int -> Int
+                            --     listLoc lm ln i = 0
+                            let txt = if loc == ln
+                                        then loc <> " #" <> show i
+                                        else loc -- <> " #" <> show (listLoc lm loc (albumID a))
+                            let t :: Text; t = "Location: "
+                            L.toHtml t
+                            L.a_ [L.class_ "loclink", L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $
+                              L.toHtml txt
               -- case M.lookup loc lm of
               --   Nothing -> ""
               --   Just li -> L.a_ [L.href_ ("https://www.discogs.com/lists/" <> show (fst li))] $ do
               --                L.img_ [L.src_ "/library-icon.png", L.alt_ "L", L.class_ "cover-oimage"]
+      let showNumbers = True
+      let txt :: Text; txt = show i
+      if showNumbers then
+        L.div_ [L.class_ "loc"] $ do
+          L.toHtml txt
+          L.span_ [L.class_ "loctext"] $ do
+            L.toHtml ("Location " <> txt)
+        else ""
+      let showRating = True
+      if showRating then
+        case albumRating a of
+          1 -> L.div_ [L.class_ "rat"] $ do
+                  L.span_ $ do
+                    L.i_ [ L.class_ "fa fa-star" ] ""
+                  -- L.span_ $ do
+                  --   L.i_ [ L.class_ "fa fa-star-o" ] ""
+                  -- L.span_ $ do
+                  --   L.i_ [ L.class_ "fa fa-star-o" ] ""
+                  -- L.span_ $ do
+                  --   L.i_ [ L.class_ "fa fa-star-o" ] ""
+                  -- L.span_ $ do
+                  --   L.i_ [ L.class_ "fa fa-star-o" ] ""
+          2 -> L.div_ [L.class_ "rat"] $ do
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star-o" ] ""
+                  L.i_ [ L.class_ "fa fa-star-o" ] ""
+                  L.i_ [ L.class_ "fa fa-star-o" ] ""
+          3 -> L.div_ [L.class_ "rat"] $ do
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star-o" ] ""
+                  L.i_ [ L.class_ "fa fa-star-o" ] ""
+          4 -> L.div_ [L.class_ "rat"] $ do
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star-o" ] ""
+          5 -> L.div_ [L.class_ "rat"] $ do
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+                  L.i_ [ L.class_ "fa fa-star" ] ""
+          _ -> ""
+        else ""
+      if showRating && albumRating a > 0 then
+        L.div_ [L.class_ "rat0"] $ do
+          L.span_ $ do
+            L.i_ [ L.class_ "fa fa-star-o" ] ""
+          L.span_ $ do
+            L.i_ [ L.class_ "fa fa-star-o" ] ""
+          L.span_ $ do
+            L.i_ [ L.class_ "fa fa-star-o" ] ""
+          L.span_ $ do
+            L.i_ [ L.class_ "fa fa-star-o" ] ""
+          L.span_ $ do
+            L.i_ [ L.class_ "fa fa-star-o" ] ""
+        else ""
+      let showPlays = True
+      if showPlays then
+        case albumPlays a of
+          cnt | cnt == 1 -> L.div_ [L.class_ "plays"] $ do
+                             L.span_ $ do
+                               L.i_ [ L.class_ "fa fa-thermometer-0" ] ""
+              | cnt == 2 -> L.div_ [L.class_ "plays"] $ do
+                             L.span_ $ do
+                               L.i_ [ L.class_ "fa fa-thermometer-1" ] ""
+              | cnt == 3 -> L.div_ [L.class_ "plays"] $ do
+                             L.span_ $ do
+                               L.i_ [ L.class_ "fa fa-thermometer-2" ] ""
+              | cnt == 4 -> L.div_ [L.class_ "plays"] $ do
+                             L.span_ $ do
+                               L.i_ [ L.class_ "fa fa-thermometer-3" ] ""
+              | cnt >= 5 -> L.div_ [L.class_ "plays"] $ do
+                             L.span_ $ do
+                               L.i_ [ L.class_ "fa fa-thermometer-4" ] ""
+          _ -> ""
+        else ""
     L.div_ [L.class_ "album-info"] $ do
       L.p_ [L.class_ "album-title"] $ do
         L.toHtml (albumTitle a)
@@ -329,6 +446,82 @@ p.album-artist {
   height: 24px;
   padding: 0px;
 }
+a:link {
+  color: #888;
+}
+a:visited {
+  color: #888;
+}
+a:hover {
+  color: hotpink;
+}
+a:active {
+  color: blue;
+}
+
+.rat {
+  width: 70px;
+  height: 13px;
+  font-size:small;
+  text-align: center;
+  color: gold;
+  padding: 0px;
+  border-radius: 4px;
+  position: absolute;
+  left: 87;
+  bottom: 7;
+  background-color: rgba(255,255,255,.5);
+}
+.rat0 {
+  width: 70px;
+  height: 13px;
+  font-size:small;
+  text-align: center;
+  color: black;
+  padding: 0px;
+  border-radius: 4px;
+  position: absolute;
+  left: 87;
+  bottom: 7;
+}
+.plays {
+  width: 15px;
+  height: 13px;
+  font-size:small;
+  text-align: center;
+  color: red;
+  padding: 0px;
+  border-radius: 4px;
+  position: absolute;
+  left: 71;
+  bottom: 7;
+  background-color: rgba(255,255,255,.5);
+}
+
+.loc {
+  position: relative;
+  display: inline-block;
+}
+
+.loc .loctext {
+  visibility: hidden;
+  width: 120px;
+  background-color: black;
+  color: #777;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+  position: absolute;
+  z-index: 1;
+}
+
+.loc:hover .loctext {
+  visibility: visible;
+}
+.loclink {
+  color: #0ff;
+}
+
 
 .cover-obackground1 {
   width: 24px;
@@ -340,9 +533,12 @@ p.album-artist {
   bottom: 7;
   background-color: rgba(255,255,255,.5);
 }
+
 .cover-obackground2 {
-  width: 24px;
-  height: 24px;
+  height: 16px;
+  width: 20px;
+  color: black;
+  text-align: center;
   padding: 0px;
   border-radius: 4px;
   position: absolute;
@@ -350,6 +546,28 @@ p.album-artist {
   bottom: 7;
   background-color: rgba(255,255,255,.5);
 }
+
+.cover-obackground2 a:link { color: black; }
+.cover-obackground2 a:visited { color: black; }
+.loctext a:link { color: white; }
+.loctext a:visited { color: white; }
+
+.cover-obackground2 .loctext {
+  visibility: hidden;
+  width: 120px;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+  position: absolute;
+  z-index: 1;
+}
+
+.cover-obackground2:hover .loctext {
+  visibility: visible;
+}
+
 /* When you mouse over the container, fade in the overlay title */
 /*.cover-container:hover .cover-overlay {
   opacity: 1;

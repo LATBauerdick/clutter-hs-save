@@ -69,34 +69,35 @@ server env = serveAlbum
         :<|> serveDirectoryFileServer "static"
   where serveAlbum :: Int -> Handler RawHtml
         serveAlbum aid = do
-          am <- liftIO ( readIORef (albums env) )
+          am <- liftIO ( readIORef (albumsR env) )
           let mAlbum = M.lookup aid am
           return $ RawHtml $ L.renderBS (renderAlbum mAlbum)
 
         serveAlbums :: Text -> Maybe Text -> Maybe Text -> Handler RawHtml
         serveAlbums list msb mso = do
           aids' <- liftIO ( getList env env list )
-          am <- liftIO ( readIORef (albums env) )
-          lns <- liftIO ( readIORef (listNames env) )
-          sn <- case msb of
-                 Nothing -> liftIO ( readIORef (sortName env) )
-                 Just sb -> do
-                              _ <- writeIORef ( sortName env ) sb
-                              pure sb
-          so <- case mso of
-                 Nothing -> liftIO ( readIORef (sortOrder env) )
-                 Just sot ->  do
-                                let so = case sot of
+          am    <- liftIO ( readIORef (albumsR env) )
+          lns   <- liftIO ( readIORef (listNamesR env) )
+          sn    <- case msb of
+                    Nothing -> liftIO ( readIORef (sortNameR env) )
+                    Just sb -> do
+                                _ <- writeIORef ( sortNameR env ) sb
+                                pure sb
+          so    <- case mso of
+                    Nothing -> liftIO ( readIORef (sortOrderR env) )
+                    Just sot ->  do
+                                  let so = case sot of
                                           "Desc" -> Desc
                                           _      -> Asc
-                                _ <- writeIORef ( sortOrder env ) so
-                                pure so
+                                  _ <- writeIORef ( sortOrderR env ) so
+                                  pure so
 
           let doSort = getSort env am sn
           let aids = doSort so aids'
-          lm <- liftIO ( readIORef (lists env) )
+          lm <- liftIO ( readIORef (listsR env) )
+          locs <- liftIO ( readIORef (locsR env) )
           return $ RawHtml
-                $ L.renderBS ( renderAlbums env am lm aids lns list sn so )
+                $ L.renderBS ( renderAlbums env am lm locs aids lns list sn so )
         -- serveJSON :: Server API2
         -- serveJSON = do
         --   return $ M.elems ( albums env )
@@ -104,20 +105,22 @@ server env = serveAlbum
         serveDiscogs :: Text -> Text -> Handler RawHtml
         serveDiscogs token username = do
           _ <- liftIO ( refreshEnv env token username )
-          am <- liftIO ( readIORef (albums env) )
+          am <- liftIO ( readIORef (albumsR env) )
           aids <- liftIO ( getList env env "Discogs" )
-          lns <- liftIO ( readIORef (listNames env ) )
-          lm <- liftIO ( readIORef (lists env) )
-          return $ RawHtml $ L.renderBS ( renderAlbums env am lm aids lns "Discogs" "Default" Asc )
+          lns <- liftIO ( readIORef (listNamesR env ) )
+          lm <- liftIO ( readIORef (listsR env) )
+          locs <- liftIO ( readIORef (locsR env) )
+          return $ RawHtml $ L.renderBS ( renderAlbums env am lm locs aids lns "Discogs" "Default" Asc )
 
         serveTidal :: Text -> Text -> Handler RawHtml
         serveTidal token username = do
           _ <- liftIO ( refreshEnv env token username )
-          am <- liftIO ( readIORef (albums env) )
+          am <- liftIO ( readIORef (albumsR env) )
           aids <- liftIO ( getList env env "Tidal" )
-          lns <- liftIO ( readIORef (listNames env ) )
-          lm <- liftIO ( readIORef (lists env) )
-          return $ RawHtml $ L.renderBS ( renderAlbums env am lm aids lns "Tidal" "Default" Asc )
+          lns <- liftIO ( readIORef (listNamesR env ) )
+          lm <- liftIO ( readIORef (listsR env) )
+          locs <- liftIO ( readIORef (locsR env) )
+          return $ RawHtml $ L.renderBS ( renderAlbums env am lm locs aids lns "Tidal" "Default" Asc )
 
 
 -- type App = ReaderT Env IO

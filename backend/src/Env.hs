@@ -30,7 +30,7 @@ import Provider ( readAlbums
                 , readListAids
                 , readFolders
                 , readFolderAids
-                , refreshLists
+                , rereadLists
                 )
 
 -- testAlbum :: Album
@@ -51,14 +51,16 @@ refreshEnv env tok un = getEnv (Just env) (Just (Discogs $ DiscogsSession tok un
 -- myFoldr :: (a -> b -> b) -> b -> [a] -> b
 -- myFoldr = _
 
+-- initialize env: if not exest yet, get from file, otherwise from Discogs
 getEnv :: Maybe Env -> Maybe Discogs -> IO Env
 getEnv _ Nothing = envFromFiles
 getEnv Nothing _ = envFromFiles
 getEnv (Just env) (Just discogs') = do
   putTextLn $ "-----------------Updating from " <> show discogs'
   -- we still need the "old" lists map and album map
-  oldAlbums <- readIORef $ albums env
-  oldLists <- readIORef $ lists env
+  oldAlbums <- readIORef $ albumsR env
+  oldLists <- readIORef $ listsR env
+  -- oldLocs <- readIORef $ locsR env
 
   -- also save tidal albums
   let (_, tl) = fromMaybe (0, V.empty) $ M.lookup "Tidal" oldLists
@@ -66,50 +68,68 @@ getEnv (Just env) (Just discogs') = do
       vta = V.fromList $ mapMaybe (`M.lookup` oldAlbums) $ V.toList tl
       tidalAlbums = M.fromList $ (\ a -> (albumID a, a)) <$> V.toList vta
 
-  -- refresh Discogs albums info, overwriting changes
+  -- reread Discogs albums info, overwriting changes
   vda <- readAlbums discogs'
   let newAlbums :: Map Int Album
       newAlbums = M.fromList $ (\ a -> (albumID a, a)) <$> V.toList vda
   let allAlbums = newAlbums <> tidalAlbums
-  _ <- writeIORef ( albums env ) allAlbums
+  _ <- writeIORef ( albumsR env ) allAlbums
 
-  -- refresh Discogs folders info
+  -- reread Discogs folders info
   newFolders <- readFolders discogs' -- readDiscogsFolders
-  -- refresh Discogs lists info
-  lm <- refreshLists discogs'
-  -- refresh folder album ids
+  -- reread Discogs lists info
+  lm <- rereadLists discogs'
+  -- reread folder album ids
   let fm :: Map Text ( Int, Vector Int )
       fm = readFolderAids newFolders allAlbums
   let allLists = lm <> fm
   _ <- M.traverseWithKey ( \ n (i,vi) -> putTextLn $ show n <> "--" <> show i <> ": " <> show (length vi) ) allLists
 
-  _ <- writeIORef ( lists env ) allLists
-  _ <- writeIORef ( listNames env ) ( V.fromList . M.keys $ allLists )
-  _ <- writeIORef ( discogs env ) discogs'
-  _ <- writeIORef ( sortName env ) "Default"
-  _ <- writeIORef ( sortOrder env ) Asc
+  let allLocs = updateLocations lm
+
+  _ <- writeIORef ( listsR env ) allLists
+  _ <- writeIORef ( locsR env ) allLocs
+  _ <- writeIORef ( listNamesR env ) ( V.fromList . M.keys $ allLists )
+  _ <- writeIORef ( discogsR env ) discogs'
+  _ <- writeIORef ( sortNameR env ) "Default"
+  _ <- writeIORef ( sortOrderR env ) Asc
   return env
+
+updateLocations :: Map Text (Int, Vector Int) -> Map Int (Text, Int)
+updateLocations = M.fromList . concatMap xxx . filter p . M.toList where
+  xxx :: (Text, (Int, Vector Int)) -> [(Int, (Text, Int))]
+  xxx (ln, (_, aids)) = zipWith (\ aid idx -> (aid, (ln, idx))) [1..] (V.toList aids)
+  p :: (Text, (Int, Vector Int)) -> Bool
+  p (ln, _) = pLoc ln
+  pLoc :: Text -> Bool  -- lists with location info
+  pLoc n = case viaNonEmpty head . words $ n of
+                  Just "Cube"   -> True
+                  Just "Shelf"  -> True
+                  _             -> False
 
 envFromFiles :: IO Env
 envFromFiles = do
   putTextLn "-------------envFromFiles------------------"
 
--- return list of Album IDs for List name
+-- define the function for (env getList) :: Env -> Text -> IO ( Vector Int )
+-- that will return list of Album IDs for List name
 --  if list in Env is empty, try to get from provider
   let getList' :: Env -> Text -> IO ( Vector Int )
       getList' env ln = do
-        myLists <- readIORef ( lists env )
-        -- let getAids :: Text -> IO ( Vector Int )
-        --     getAids ln = do
-        let (i, aids') = fromMaybe (0, V.empty) (M.lookup ln myLists)
+        lists' <- readIORef ( listsR env )
+        let (lid, aids') = fromMaybe (0, V.empty) (M.lookup ln lists')
         if V.null aids' then do
-          discogs' <- readIORef ( discogs env )
-          aids <- readListAids discogs' i
+          discogs' <- readIORef ( discogsR env )
+          aids <- readListAids discogs' lid
+          -- update location info in albums
+          --   go through this list and update location in albums
+          -- am <- liftIO ( readIORef (albumsR env) )
+          -- am' <- updateLocations lists ln am aids -- not yet implemented
+          -- _ <- writeIORef (albumsR env) am'
           -- write back modified lists
-          _ <- writeIORef ( lists env ) $ M.insert ln (i, aids) myLists
+          _ <- writeIORef ( listsR env ) $ M.insert ln (lid, aids) lists'
           pure aids
         else pure aids'
-        -- getAids ln
 
   
 --
@@ -124,8 +144,8 @@ envFromFiles = do
       userId = fromMaybe 0 $ readMaybe ( toString t2 ) :: Int
       discogsToken = t0
       discogsUser = t1
-  -- let tidal = Tidal $ TidalFile "data/tall.json"
-  let tidal = Tidal $ TidalSession userId sessionId countryCode
+  let tidal = Tidal $ TidalFile "data/tall.json"
+  -- let tidal = Tidal $ TidalSession userId sessionId countryCode
   -- let dc = Discogs $ DiscogsSession discogsToken discogsUser
   let dc = Discogs $ DiscogsFile "data/dall.json"
 
@@ -185,17 +205,20 @@ envFromFiles = do
   let lists' = lm <> fm
   let listNames' = V.fromList ( M.keys lists' )
   _ <- M.traverseWithKey ( \ n (i,vi) -> putTextLn $ show n <> "--" <> show i <> ": " <> show (length vi) ) lists'
+  let allLocs = updateLocations lm
+
   lnr <- newIORef listNames'
   lr <- newIORef lists'
+  lo <- newIORef allLocs
   dr <- newIORef dc
   ar <- newIORef albums'
   sr <- newIORef "Default"
   so <- newIORef Asc
-  return Env { discogs = dr
-             , albums = ar, lists = lr
-             , listNames = lnr
-             , sortName = sr
-             , sortOrder = so
+  return Env { discogsR = dr
+             , albumsR = ar, listsR = lr, locsR = lo
+             , listNamesR = lnr
+             , sortNameR = sr
+             , sortOrderR = so
              , sorts = sorts'
              , url = "/"
              , getList = getList'
