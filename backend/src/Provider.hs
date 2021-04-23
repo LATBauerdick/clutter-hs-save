@@ -11,14 +11,15 @@ module Provider ( readListAids
 import Relude
 
 import qualified FromJSON as FJ ( readReleases
-                                , readLists
-                                , readFolders
                                 )
 import qualified FromTidal as FT ( readTidalReleases )
 import qualified FromDiscogs as FD ( readDiscogsReleases
+                                   , readDiscogsReleasesCache
                                    , readDiscogsLists
+                                   , readDiscogsListsCache
                                    , readListAids
                                    , readDiscogsFolders
+                                   , readDiscogsFoldersCache
                                    , rereadLists
                                    )
 
@@ -80,7 +81,7 @@ instance Provider Tidal where
 
 instance Provider Discogs where
   readLists p = case getDiscogs p of
-                  DiscogsFile _ -> FJ.readLists
+                  DiscogsFile fn -> FD.readDiscogsListsCache fn
                   _ -> FD.readDiscogsLists (getDiscogs p)
   readAlbums p = do
     let
@@ -101,11 +102,10 @@ instance Provider Discogs where
                           (dlocation r)
                           (drating r)
                           (dplays r)
-        -- fn = "data/dall.json"
 
     ds <- case getDiscogs p of
-          DiscogsFile fn -> FJ.readReleases fn
-          _ -> FD.readDiscogsReleases (getDiscogs p)
+            DiscogsFile fn -> FD.readDiscogsReleasesCache fn
+            _ -> FD.readDiscogsReleases (getDiscogs p)
 
     let as  = toAlbum <$> ds
 
@@ -122,7 +122,7 @@ readListAids p i = case getDiscogs p of
 
 readFolders :: Discogs -> IO ( Map Text Int )
 readFolders p = case getDiscogs p of
-                  DiscogsFile _ -> FJ.readFolders
+                  DiscogsFile fn -> FD.readDiscogsFoldersCache fn
                   _ -> FD.readDiscogsFolders (getDiscogs p)
 
 -- populate the aids for folders from the folder+id in each Album

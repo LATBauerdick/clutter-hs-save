@@ -4,11 +4,13 @@ module Types ( Tidal (..)
              , Discogs (..)
              , DiscogsInfo (..)
              , TagFolder (..)
+             , pLocList
              , TidalInfo (..)
              , Release (..)
              , Album (..)
              , SortOrder (..)
              , Env (..)
+             , EnvR (..)
              ) where
 
 import Relude
@@ -28,6 +30,12 @@ instance ATags TagFolder where
 data SortOrder = Asc | Desc
   deriving (Enum, Read, Show, Eq, Ord)
 
+pLocList :: Text -> Bool  -- lists with location info
+pLocList n = case viaNonEmpty head . words $ n of
+                    Just "Cube"   -> True
+                    Just "Shelf"  -> True
+                    _             -> False
+
 newtype Tidal = Tidal { getTidal :: TidalInfo }
 
 newtype Discogs = Discogs { getDiscogs :: DiscogsInfo } deriving Show
@@ -45,6 +53,17 @@ data Env
   , url         :: Text
   , getList     :: Env -> Text -> IO ( Vector Int )
   , getSort     :: Map Int Album -> Text -> (SortOrder -> Vector Int -> Vector Int )
+  }
+
+data EnvR
+  = EnvR
+  { albums     :: Map Int Album
+  , lists      :: Map Text (Int, Vector Int)
+  , locs       :: Map Int (Text, Int) -- lookup (location, pos) by from albumID
+  , listNames  :: Vector Text
+  , sortName   :: Text
+  , sortOrder  :: SortOrder
+  , discogs    :: Discogs
   }
 
 data Release

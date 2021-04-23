@@ -23,6 +23,7 @@ import qualified Data.Map.Strict as M
 import Types ( Album (..), TidalInfo (..), SortOrder (..), Env (..)
              , Tidal (..)
              , Discogs (..), DiscogsInfo (..)
+             , pLocList
              )
 
 import Provider ( readAlbums
@@ -60,7 +61,6 @@ getEnv (Just env) (Just discogs') = do
   -- we still need the "old" lists map and album map
   oldAlbums <- readIORef $ albumsR env
   oldLists <- readIORef $ listsR env
-  -- oldLocs <- readIORef $ locsR env
 
   -- also save tidal albums
   let (_, tl) = fromMaybe (0, V.empty) $ M.lookup "Tidal" oldLists
@@ -85,27 +85,15 @@ getEnv (Just env) (Just discogs') = do
   let allLists = lm <> fm
   _ <- M.traverseWithKey ( \ n (i,vi) -> putTextLn $ show n <> "--" <> show i <> ": " <> show (length vi) ) allLists
 
-  let allLocs = updateLocations lm
-
   _ <- writeIORef ( listsR env ) allLists
-  _ <- writeIORef ( locsR env ) allLocs
   _ <- writeIORef ( listNamesR env ) ( V.fromList . M.keys $ allLists )
   _ <- writeIORef ( discogsR env ) discogs'
   _ <- writeIORef ( sortNameR env ) "Default"
   _ <- writeIORef ( sortOrderR env ) Asc
   return env
 
-updateLocations :: Map Text (Int, Vector Int) -> Map Int (Text, Int)
-updateLocations = M.fromList . concatMap xxx . filter p . M.toList where
-  xxx :: (Text, (Int, Vector Int)) -> [(Int, (Text, Int))]
-  xxx (ln, (_, aids)) = zipWith (\ aid idx -> (aid, (ln, idx))) [1..] (V.toList aids)
-  p :: (Text, (Int, Vector Int)) -> Bool
-  p (ln, _) = pLoc ln
-  pLoc :: Text -> Bool  -- lists with location info
-  pLoc n = case viaNonEmpty head . words $ n of
-                  Just "Cube"   -> True
-                  Just "Shelf"  -> True
-                  _             -> False
+fromListMap :: (Text, (Int, Vector Int)) -> [(Int, (Text, Int))]
+fromListMap (ln, (_, aids)) = zipWith (\ idx aid -> (aid, (ln, idx))) [1..] (V.toList aids)
 
 envFromFiles :: IO Env
 envFromFiles = do
@@ -126,6 +114,12 @@ envFromFiles = do
           -- am <- liftIO ( readIORef (albumsR env) )
           -- am' <- updateLocations lists ln am aids -- not yet implemented
           -- _ <- writeIORef (albumsR env) am'
+          if pLocList ln then do
+              lcs <- readIORef ( locsR env )
+              let lcs' = M.union (M.fromList (fromListMap (ln, (lid, aids)))) lcs
+              _ <- writeIORef ( locsR env ) lcs'
+              pure ()
+            else pure ()
           -- write back modified lists
           _ <- writeIORef ( listsR env ) $ M.insert ln (lid, aids) lists'
           pure aids
@@ -147,7 +141,7 @@ envFromFiles = do
   let tidal = Tidal $ TidalFile "data/tall.json"
   -- let tidal = Tidal $ TidalSession userId sessionId countryCode
   -- let dc = Discogs $ DiscogsSession discogsToken discogsUser
-  let dc = Discogs $ DiscogsFile "data/dall.json"
+  let dc = Discogs $ DiscogsFile "data/"
 
   -- vda/vta :: Vector of Album
   vta <- readAlbums tidal
@@ -205,7 +199,7 @@ envFromFiles = do
   let lists' = lm <> fm
   let listNames' = V.fromList ( M.keys lists' )
   _ <- M.traverseWithKey ( \ n (i,vi) -> putTextLn $ show n <> "--" <> show i <> ": " <> show (length vi) ) lists'
-  let allLocs = updateLocations lm
+  let allLocs = M.fromList . concatMap fromListMap . filter (pLocList . fst) . M.toList $ lm
 
   lnr <- newIORef listNames'
   lr <- newIORef lists'

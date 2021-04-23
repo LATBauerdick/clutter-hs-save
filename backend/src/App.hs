@@ -27,7 +27,7 @@ import Env ( refreshEnv
            , initEnv
            )
 
-import Types ( Env (..), SortOrder (..) )
+import Types ( Env (..), EnvR (..), SortOrder (..) )
 
 import Render ( renderAlbum
               , renderAlbums
@@ -74,8 +74,8 @@ server env = serveAlbum
           return $ RawHtml $ L.renderBS (renderAlbum mAlbum)
 
         serveAlbums :: Text -> Maybe Text -> Maybe Text -> Handler RawHtml
-        serveAlbums list msb mso = do
-          aids' <- liftIO ( getList env env list )
+        serveAlbums listName msb mso = do
+          aids' <- liftIO ( getList env env listName )
           am    <- liftIO ( readIORef (albumsR env) )
           lns   <- liftIO ( readIORef (listNamesR env) )
           sn    <- case msb of
@@ -95,32 +95,44 @@ server env = serveAlbum
           let doSort = getSort env am sn
           let aids = doSort so aids'
           lm <- liftIO ( readIORef (listsR env) )
-          locs <- liftIO ( readIORef (locsR env) )
+          lcs <- liftIO ( readIORef (locsR env) )
+          di <- liftIO ( readIORef (discogsR env) )
+          let envr = EnvR am lm lcs lns sn so di
           return $ RawHtml
-                $ L.renderBS ( renderAlbums env am lm locs aids lns list sn so )
+                $ L.renderBS ( renderAlbums env envr listName aids )
         -- serveJSON :: Server API2
         -- serveJSON = do
         --   return $ M.elems ( albums env )
 
         serveDiscogs :: Text -> Text -> Handler RawHtml
         serveDiscogs token username = do
-          _ <- liftIO ( refreshEnv env token username )
-          am <- liftIO ( readIORef (albumsR env) )
-          aids <- liftIO ( getList env env "Discogs" )
+          _   <- liftIO ( refreshEnv env token username )
+          am  <- liftIO ( readIORef (albumsR env) )
+          lm  <- liftIO ( readIORef (listsR env) )
+          lcs <- liftIO ( readIORef (locsR env) )
           lns <- liftIO ( readIORef (listNamesR env ) )
-          lm <- liftIO ( readIORef (listsR env) )
-          locs <- liftIO ( readIORef (locsR env) )
-          return $ RawHtml $ L.renderBS ( renderAlbums env am lm locs aids lns "Discogs" "Default" Asc )
+          sn  <- liftIO ( readIORef (sortNameR env) )
+          so  <- liftIO ( readIORef (sortOrderR env) )
+          di  <- liftIO ( readIORef (discogsR env) )
+          let ln = "Discogs"
+          aids <- liftIO ( getList env env ln )
+          let envr = EnvR am lm lcs lns sn so di
+          return $ RawHtml $ L.renderBS ( renderAlbums env envr ln aids )
 
         serveTidal :: Text -> Text -> Handler RawHtml
         serveTidal token username = do
-          _ <- liftIO ( refreshEnv env token username )
-          am <- liftIO ( readIORef (albumsR env) )
-          aids <- liftIO ( getList env env "Tidal" )
+          _   <- liftIO ( refreshEnv env token username )
+          am  <- liftIO ( readIORef (albumsR env) )
+          lm  <- liftIO ( readIORef (listsR env) )
+          lcs <- liftIO ( readIORef (locsR env) )
           lns <- liftIO ( readIORef (listNamesR env ) )
-          lm <- liftIO ( readIORef (listsR env) )
-          locs <- liftIO ( readIORef (locsR env) )
-          return $ RawHtml $ L.renderBS ( renderAlbums env am lm locs aids lns "Tidal" "Default" Asc )
+          sn  <- liftIO ( readIORef (sortNameR env) )
+          so  <- liftIO ( readIORef (sortOrderR env) )
+          di  <- liftIO ( readIORef (discogsR env) )
+          let ln = "Tidal"
+          aids <- liftIO ( getList env env ln )
+          let envr = EnvR am lm lcs lns sn so di
+          return $ RawHtml $ L.renderBS ( renderAlbums env envr ln aids )
 
 
 -- type App = ReaderT Env IO
