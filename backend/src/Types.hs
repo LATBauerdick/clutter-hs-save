@@ -34,6 +34,7 @@ pLocList :: Text -> Bool  -- lists with location info
 pLocList n = case viaNonEmpty head . words $ n of
                     Just "Cube"   -> True
                     Just "Shelf"  -> True
+                    Just "Incoming"  -> True
                     _             -> False
 
 newtype Tidal = Tidal { getTidal :: TidalInfo }
