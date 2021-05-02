@@ -24,7 +24,7 @@ instance FromJSON DNote where
   parseJSON = withObject "notes" $ \ o -> do
     dfid_ <- o .: "field_id"
     dval_ <- o .: "value"
-    return $ DNote dfid_ dval_
+    pure $ DNote dfid_ dval_
 
 newtype FJRelease = FJRelease Release
 unFJRelease :: FJRelease -> Release
@@ -40,7 +40,7 @@ instance FromJSON FJRelease where
     dcover_    <- o .:? "cover" .!= ""
     dfolder_   <- o .: "folder"
     -- dnotes_    <- o .: "notes"
-    return $ FJRelease ( Release daid_ dtitle_ dartists_ dreleased_ dadded_ dcover_ dfolder_ [] Nothing Nothing 0 0) -- dnotes_
+    pure $ FJRelease ( Release daid_ dtitle_ dartists_ dreleased_ dadded_ dcover_ dfolder_ [] Nothing Nothing 0 0) -- dnotes_
 
 data DLists
   = DLists
@@ -51,7 +51,7 @@ instance FromJSON DLists where
   parseJSON = withObject "lists" $ \ o -> do
     dlid_   <- o .: "id"
     dlname_ <- o .: "name"
-    return $ DLists dlid_ dlname_
+    pure $ DLists dlid_ dlname_
 
 readReleases :: FilePath -> IO [ Release ]
 readReleases fn =do
@@ -59,7 +59,7 @@ readReleases fn =do
     case ds of
       Left err -> putTextLn $ toText err
       Right _ -> pure () -- print $ drop (length ds-4) ds
-    return $ unFJRelease <$> fromRight [] ds
+    pure $ unFJRelease <$> fromRight [] ds
 
 
 readLists :: IO ( M.Map Text ( Int, Vector Int ) )
@@ -74,7 +74,7 @@ readLists = do
             Right _ -> pure () -- print ds
           let ds = V.fromList $ fromRight [] d
           -- F.for_ ds print
-          return ds
+          pure ds
 
 -- for each Discog list, read the lists of album ids from JSON
 -- we're treating Discog folders like lists,
@@ -84,13 +84,13 @@ readLists = do
         readListAids ( DLists i t ) = do
           let fn = "data/l" <> show i <> ".json"
           aids <- readDAids fn
-          return ( t, (i, aids) )
+          pure ( t, (i, aids) )
 
     ls <- readNameIds "data/lists.json"
     fs <- readNameIds "data/folders.json"
     lm <- traverse readListAids ( ls <> fs )
 
-    return $ M.fromList ( V.toList lm )
+    pure $ M.fromList ( V.toList lm )
 
 -- read the names and IDs of my Discogs lists or folders
 readFolders :: IO ( M.Map Text Int )
@@ -104,18 +104,18 @@ readFolders = do
           let ds = V.fromList $ fromRight [] d
           putTextLn "---------------readFolders------------"
           -- F.for_ ds print
-          return ds
+          pure ds
 
     -- ls <- readNameIds "data/lists.json"
     fs <- readNameIds "data/folders.json"
     let fns = (\ (DLists i n) -> (n, i)) <$> fs
-    return $ M.fromList ( V.toList fns )
+    pure $ M.fromList ( V.toList fns )
 
 newtype DAid = DAid { dlaid   :: Int } deriving (Show)
 instance FromJSON DAid where
   parseJSON = withObject "daid" $ \ o -> do
     d_   <- o .: "id"
-    return $ DAid d_
+    pure $ DAid d_
 
 readDAids :: FilePath -> IO ( Vector Int )
 readDAids fn = do
@@ -125,7 +125,7 @@ readDAids fn = do
     Right _ -> pure () -- print ds
   let ds = V.fromList $ fromRight [] d
       aids  = dlaid <$> ds
-  return aids
+  pure aids
 
 
 
@@ -136,5 +136,5 @@ catchShowIO action = fmap Right action `Exception.catch` handleIOException
       :: IOException
       -> IO (Either String a)
     handleIOException =
-      return . Left . show
+      pure . Left . show
 

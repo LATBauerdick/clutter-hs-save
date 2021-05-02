@@ -73,7 +73,7 @@ instance FromJSON WRelease where
     rating_    <- o .: "rating"
     bi_        <- o .: "basic_information"
     notes_     <- o .:? "notes" .!= []
-    return ( WRelease daid_ dadded_ fid_ rating_ bi_ notes_ )
+    pure $ WRelease daid_ dadded_ fid_ rating_ bi_ notes_
 data WBasicInfo = WBasicInfo { title :: !Text
                              , year :: Int
                              , cover_image :: !Text
@@ -97,13 +97,13 @@ newtype WLItems = WLItems { wlitems :: [WAid] } deriving (Show, Generic)
 instance FromJSON WLItems where
   parseJSON = withObject "wlitems" $ \ o -> do
     d_ <- o .: "items"
-    return $ WLItems d_
+    pure $ WLItems d_
 
 newtype WAid = WAid { wlaid :: Int } deriving (Show)
 instance FromJSON WAid where
   parseJSON = withObject "waid" $ \ o -> do
     d_   <- o .: "id"
-    return $ WAid d_
+    pure $ WAid d_
 
 instance FromJSON WTest
 instance FromJSON WLists
@@ -280,12 +280,12 @@ releasesFromDiscogsApi di = do
         let rs1 = getWr r1
         r2 <- getReleases un 0 (Just 3) (Just 500) ( Just tok )  userAgent
         let rs2 = getWr r2
-        return $ rs0 <> rs1 <> rs2
+        pure $ rs0 <> rs1 <> rs2
   putTextLn "-----------------Getting Collection from Discogs-----"
   res <- runClientM query dc
   case res of
-    Left err -> return $ Left (show err)
-    Right r -> return $ Right r
+    Left err -> pure $ Left (show err)
+    Right r -> pure $ Right r
 
 releasesFromCacheFile :: FilePath -> IO (Either String [WRelease])
 releasesFromCacheFile fn = do
@@ -293,7 +293,7 @@ releasesFromCacheFile fn = do
   res1 <- (eitherDecode <$> readFileLBS (fn <> "draw1.json")) :: IO (Either String WReleases)
   res2 <- (eitherDecode <$> readFileLBS (fn <> "draw2.json")) :: IO (Either String WReleases)
   res3 <- (eitherDecode <$> readFileLBS (fn <> "draw3.json")) :: IO (Either String WReleases)
-  return $ Right $ concatMap getWr . rights $ [res1, res2, res3]
+  pure . Right . concatMap getWr . rights $ [res1, res2, res3]
 
 readDiscogsReleasesCache :: FilePath -> IO [Release]
 readDiscogsReleasesCache fn = do
@@ -326,7 +326,7 @@ listsFromDiscogsApi di = do
   let query :: ClientM WLists
       query = getLists un ( Just tok ) userAgent
   res <- runClientM query dc
-  return $ case res of
+  pure $ case res of
               Left err -> Left (show err)
               Right r -> Right r
 
@@ -346,7 +346,7 @@ readDiscogsLists di = do
 
   let lm :: [ ( Text, (Int, Vector Int) ) ]
       lm = (\ WList {id=i, name=n} -> ( n, ( i, V.empty ))) <$> ls
-  return $ M.fromList lm
+  pure $ M.fromList lm
 
 readDiscogsListsCache :: FilePath -> IO ( Map Text ( Int, Vector Int ) )
 readDiscogsListsCache fn = do
@@ -362,12 +362,12 @@ readDiscogsListsCache fn = do
   let getAids :: FilePath -> WList -> IO ( Text, (Int, Vector Int) )
       getAids f WList {id=i, name=n} = do
         is <- readListAidsCache f i
-        return ( n, ( i, is  ))
+        pure ( n, ( i, is  ))
 
   -- let lm :: [ ( Text, (Int, Vector Int) ) ]
   lm <- traverse (getAids fn) ls
 
-  return $ M.fromList lm
+  pure $ M.fromList lm
 --
 --
 --
@@ -378,7 +378,7 @@ foldersFromDiscogsApi di = do
       dc = mkClientEnv m discogsBaseUrl
 -- get list and folder names and ids
   res <- runClientM ( getFolders un ( Just tok ) userAgent ) dc
-  return $ case res of
+  pure $ case res of
               Left err -> Left (show err)
               Right r -> Right r
 
@@ -400,7 +400,7 @@ readDiscogsFolders di = do
         Right wfs -> folders wfs
   let fm :: [ ( Text, Int ) ]
       fm = (\ WList {id=i, name=n} -> ( n , i )) <$> fs
-  return $ M.fromList fm
+  pure $ M.fromList fm
 
 readDiscogsFoldersCache :: FilePath -> IO ( Map Text Int )
 readDiscogsFoldersCache fn = do
@@ -416,7 +416,7 @@ readDiscogsFoldersCache fn = do
         Right wfs -> folders wfs
   let fm :: [ ( Text, Int ) ]
       fm = (\ WList {id=i, name=n} -> ( n , i )) <$> fs
-  return $ M.fromList fm
+  pure $ M.fromList fm
 
 -- for each Discog list, read the lists of album ids from JSON
 -- we're treating Discog folders like lists,
@@ -434,7 +434,7 @@ readListAids di i = do
     Right _ -> pure ()
                 -- F.traverse_ print $ take 5 . wlitems $ ls
   let aids  = wlaid <$> V.fromList ( wlitems ( fromRight (WLItems []) res ))
-  return aids
+  pure aids
 
 readListAidsCache :: FilePath -> Int -> IO ( Vector Int )
 readListAidsCache fn i = do
@@ -447,7 +447,7 @@ readListAidsCache fn i = do
     Right _ -> pure ()
                 -- F.traverse_ print $ take 5 . wlitems $ ls
   let aids  = wlaid <$> V.fromList ( wlitems ( fromRight (WLItems []) res ))
-  return aids
+  pure aids
 
 readWLItemsCache :: FilePath -> IO ( Either String WLItems )
 readWLItemsCache fn = (eitherDecode <$> readFileLBS fn) :: IO (Either String WLItems)
@@ -470,5 +470,5 @@ rereadLists di = do
   -- map with all lists
   let lm :: Map Text (Int, Vector Int)
       lm = M.fromList . map (\ WList {id=i, name=n} -> ( n, ( i, V.empty ))) $ ls
-  return lm
+  pure lm
 

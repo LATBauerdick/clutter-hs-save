@@ -10,9 +10,7 @@ module Provider ( readListAids
                 ) where
 import Relude
 
-import qualified FromJSON as FJ ( readReleases
-                                )
-import qualified FromTidal as FT ( readTidalReleases )
+import qualified FromTidal as FT ( readTidalReleases, readReleasesFromCache )
 import qualified FromDiscogs as FD ( readDiscogsReleases
                                    , readDiscogsReleasesCache
                                    , readDiscogsLists
@@ -69,14 +67,14 @@ instance Provider Tidal where
                           0
 
     ds <- case getTidal p of
-          TidalFile fn -> FJ.readReleases fn
+          TidalFile fn -> FT.readReleasesFromCache fn
           _ -> FT.readTidalReleases (getTidal p)
     let as  = toAlbum <$> ds
 
     putTextLn $ "Total # Tidal Albums: " <> show (length as)
     -- print $ drop (length as - 4) as
 
-    return $ V.fromList as
+    pure $ V.fromList as
 
 
 instance Provider Discogs where
@@ -112,7 +110,7 @@ instance Provider Discogs where
     putTextLn $ "Total # Discogs Albums: " <> show (length as)
     -- print $ drop ( length as - 4 ) as
 
-    return $ V.fromList as
+    pure $ V.fromList as
 
 
 readListAids :: Discogs -> Int -> IO ( Vector Int )

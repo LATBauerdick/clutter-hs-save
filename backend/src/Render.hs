@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -30,9 +31,10 @@ renderAlbum mAlbum = L.html_ $ do
       Just a -> L.div_ [L.class_ "data-deskgap-drag"] $ do
         L.div_ [L.class_ "cover-container"] $ do
           L.img_
-            [ L.src_ (albumCover a),
-              L.alt_ "cover image",
-              L.class_ "cover-image"
+            [ L.src_ (albumCover a)
+            , L.alt_ "cover image"
+            , L.onerror_ "this.onerror=null;this.src='/no-cover.png';"
+            , L.class_ "cover-image"
             ]
           L.div_ [L.class_ "cover-overlay"] "Overlay Here"
         L.p_ $ L.toHtml ("Title: " <> albumTitle a)
@@ -50,8 +52,8 @@ renderAlbums env envr ln aids =
     albumBody = do
       renderLeftMenu
       -- grid of Albums
-      L.div_ [L.class_ "albums"] $ do
-        L.div_ [L.class_ "row"] $ do
+      L.div_ [L.class_ "albums"] $
+        L.div_ [L.class_ "row"] $
           F.traverse_ renderAlbumTN $ zip [1..] (mapMaybe (`M.lookup` albums envr) (V.toList aids))
 
     renderLeftMenu :: L.Html ()
@@ -62,16 +64,14 @@ renderAlbums env envr ln aids =
 
         L.li_ [L.class_ "dropdown"] $ do
           L.a_ [L.class_ "dropbtn", L.href_ "javascript:void(0)"] $do
-            let t:: Text; t = if pLocList ln then "List " else "List " <> ln <> " "
-            L.toHtml t
+            L.toHtml $ if pLocList ln then "List " else "List " <> ln <> " "
             L.i_ [ L.class_ "fa fa-caret-down" ] ""
           L.div_ [L.class_ "dropdown-content"] $ do
             F.traverse_ (addLink "albums/") $ V.filter (not . pLocList) (listNames envr)
 
         L.li_ [L.class_ "dropdown"] $ do
           L.a_ [L.class_ "dropbtn", L.href_ "javascript:void(0)"] $do
-            let t:: Text; t = if not (pLocList ln) then "Location " else "Location " <> ln <> " "
-            L.toHtml t
+            L.toHtml $ if not (pLocList ln) then "Location " else "Location " <> ln <> " "
             L.i_ [ L.class_ "fa fa-caret-down" ] ""
           L.div_ [L.class_ "dropdown-content"] $ do
             F.traverse_ (addLink "albums/") $ V.filter pLocList (listNames envr)
@@ -81,14 +81,13 @@ renderAlbums env envr ln aids =
                       Asc  -> Desc
                       Desc -> Asc
           L.a_ [L.class_ "dropbtn", L.href_ (url env <> "albums/" <> ln <> "?sortOrder=" <> show sso )] $ do
-            let txt :: Text; txt = "Sort "
-            L.toHtml txt
+            "Sort "
             case sortName envr of
               "Default" -> ""
               _         -> L.toHtml $ "by " <> sortName envr <> " "
             case sortOrder envr of
-              Asc  -> L.i_ [ L.class_ "fa fa-chevron-down" ] ""
-              Desc -> L.i_ [ L.class_ "fa fa-chevron-up" ] ""
+              Asc  -> L.i_ [ L.class_ "fa fa-chevron-circle-down" ] ""
+              Desc -> L.i_ [ L.class_ "fa fa-chevron-circle-up" ] ""
           L.div_ [L.class_ "dropdown-content"] $ do
             F.traverse_ (addLink ("albums/" <> ln <> "?sortBy=")) (sorts env)
 
@@ -104,24 +103,34 @@ renderAlbums env envr ln aids =
         L.div_ [L.class_ "cover-container"] $ do
           L.a_ [L.href_ (albumURL a a)] $ do
             L.img_
-              [ L.src_ (albumCover a),
-                L.alt_ "cover image.",
-                L.class_ "cover-image"
+              [ L.src_ (albumCover a)
+              , L.class_ "cover-image"
+              , L.onerror_ "this.onerror=null;this.src='/no-cover.png';"
               ]
             L.div_ [L.class_ "cover-overlay"] $ do
               case albumFormat a of
                 "Vinyl" ->
                   L.div_ [L.class_ "cover-obackground"] $ do
-                  L.img_ [ L.src_ "/discogs-icon.png", L.alt_ "D", L.class_ "cover-oimage" ]
+                    L.span_ [ L.class_ "fas fa-record-vinyl fa-sm" ] ""
+                  -- L.img_ [ L.src_ "/discogs-icon.png", L.alt_ "D", L.class_ "cover-oimage" ]
                 "Tidal" ->
                   L.div_ [L.class_ "cover-obackground"] $ do
-                  L.img_ [ L.src_ "/tidal-icon.png", L.alt_ "T", L.class_ "cover-oimage" ]
-                _ ->
+                    L.img_ [ L.src_ "/tidal-icon.png", L.alt_ "T", L.class_ "cover-oimage" ]
+                "CD" ->
                   L.div_ [L.class_ "cover-obackground"] $ do
-                  L.toHtml (albumFormat a)
-              case albumTidal a of
-                Nothing -> ""
-                Just turl -> L.div_ [L.class_ "cover-obackground1"] $ do
+                    L.span_ [ L.class_ "fas fa-compact-disc fa-sm" ] ""
+                "Vinyl, Box Set" ->
+                  L.div_ [L.class_ "cover-obackground"] $ do
+                    L.span_ [ L.class_ "far fa-clone fa-sm" ] ""
+                "File" ->
+                  L.div_ [L.class_ "cover-obackground"] $ do
+                    L.span_ [ L.class_ "far fa-file-audio fa-sm" ] ""
+                _ ->
+                  L.div_ [L.class_ "cover-obackground"] $
+                    L.toHtml (albumFormat a)
+          case albumTidal a of
+            Nothing -> ""
+            Just turl -> L.div_ [L.class_ "cover-obackground1"] $ do
                   L.a_ [L.href_ turl] $ do
                     L.img_ [L.src_ "/tidal-icon.png", L.alt_ "T", L.class_ "cover-oimage"]
           let showLocation = True
@@ -131,95 +140,86 @@ renderAlbums env envr ln aids =
                 case M.lookup (albumID a) (locs envr) of
                   Just (loc, pos) ->
                     L.div_ [L.class_ "cover-obackground2"] $ do
-                    L.a_ [L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $
-                      L.i_ [ L.class_ "fa fa-barcode" ] ""
-                    L.span_ [L.class_ "loctext"] $ do
-                      let t :: Text; t = loc <> " #" <> show pos
-                      let txt :: Text; txt = "Location: "
-                      L.toHtml txt
-                      L.a_ [L.class_ "loclink", L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $
-                        L.toHtml t
+                      L.a_ [L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $
+                        -- L.i_ [ L.class_ "fa fa-align-justify fa-rotate-90" ] ""
+                        L.i_ [ L.class_ "fa fa-barcode" ] ""
+                      L.span_ [L.class_ "loctext"] $ do
+                        "Location: "
+                        L.a_ [L.class_ "loclink", L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $
+                          L.toHtml $ loc <> " #" <> show pos
                   _ -> ""
               Just loc ->
                 L.div_ [L.class_ "cover-obackground2"] $ do
                   L.a_ [L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $
-                    L.i_ [ L.class_ "fa fa-barcode", L.style_ "color:red"] ""
+                    -- L.i_ [ L.class_ "fa fa-align-justify fa-rotate-90", L.style_ "color:red"] ""
+                    L.i_ [ L.class_ "fa fa-barcode", L.style_ "color:red" ] ""
                   L.span_ [L.class_ "loctext"] $ do
-                    let txt = if loc == ln
-                                then loc <> " #" <> show idx
-                                else loc -- <> " #" <> show (listLoc lm loc (albumID a))
-                    let t :: Text; t = "Location: "
-                    L.toHtml t
+                    "Location: "
                     L.a_ [L.class_ "loclink", L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $
-                      L.toHtml txt
+                      L.toHtml $ if loc == ln
+                                    then loc <> " #" <> show idx
+                                    else loc
             else ""
           let showNumbers = True
-          let txt :: Text; txt = " " <> show idx <> " "
           if showNumbers then
-            L.div_ [L.class_ "idx"] $ do
-              L.toHtml txt
+            L.div_ [L.class_ "idx"] $ " " <> show idx <> " "
             else ""
           let showRating = True
           if showRating then
             case albumRating a of
               1 -> L.div_ [L.class_ "rat"] $ do
-                      L.span_ $ do
-                        L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
               2 -> L.div_ [L.class_ "rat"] $ do
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
               3 -> L.div_ [L.class_ "rat"] $ do
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
               4 -> L.div_ [L.class_ "rat"] $ do
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star-o", L.style_ "color:black" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star-o fa-sm", L.style_ "color:black" ] ""
               5 -> L.div_ [L.class_ "rat"] $ do
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
-                      L.i_ [ L.class_ "fa fa-star" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
+                      L.i_ [ L.class_ "fa fa-star fa-sm" ] ""
               _ -> ""
             else ""
           let showPlays = True
-          if showPlays then
-            case albumPlays a of
-              cnt | cnt == 1 -> L.div_ [L.class_ "plays"] $ do
-                                L.span_ $ do
-                                  L.i_ [ L.class_ "fa fa-thermometer-0" ] ""
-                  | cnt == 2 -> L.div_ [L.class_ "plays"] $ do
-                                L.span_ $ do
-                                  L.i_ [ L.class_ "fa fa-thermometer-1" ] ""
-                  | cnt == 3 -> L.div_ [L.class_ "plays"] $ do
-                                L.span_ $ do
-                                  L.i_ [ L.class_ "fa fa-thermometer-2" ] ""
-                  | cnt == 4 -> L.div_ [L.class_ "plays"] $ do
-                                L.span_ $ do
-                                  L.i_ [ L.class_ "fa fa-thermometer-3" ] ""
-                  | cnt >= 5 -> L.div_ [L.class_ "plays"] $ do
-                                L.span_ $ do
-                                  L.i_ [ L.class_ "fa fa-thermometer-4" ] ""
-              _ -> ""
-            else ""
+          let np = albumPlays a
+          if showPlays && np > 0 then
+            L.div_ [L.class_ "plays"] $ do
+              case np of
+                cnt | cnt == 1 -> L.span_ $
+                                    L.i_ [ L.class_ "far fa-check-circle" ] ""
+                    | cnt == 2 -> L.span_ $
+                                    L.i_ [ L.class_ "fa fa-thermometer-1" ] ""
+                    | cnt == 3 -> L.span_ $
+                                    L.i_ [ L.class_ "fa fa-thermometer-2", L.style_ "color:orange" ] ""
+                    | cnt == 4 -> L.span_ $
+                                    L.i_ [ L.class_ "fa fa-thermometer-3", L.style_ "color:red" ] ""
+                    | cnt >= 5 -> L.span_ $
+                                    L.i_ [ L.class_ "fa fa-thermometer-4", L.style_ "color:red" ] ""
+                _ -> ""
+              L.span_ [L.class_ "loctext"]  ("Played " <> show (albumPlays a) <> " times")
+          else ""
         L.div_ [L.class_ "album-info"] $ do
-          L.p_ [L.class_ "album-title"] $ do
-            L.toHtml (albumTitle a)
-          L.p_ [L.class_ "album-artist"] $ do
-            L.toHtml (albumArtist a)
+          L.p_ [L.class_ "album-title"] $ L.toHtml (albumTitle a)
+          L.p_ [L.class_ "album-artist"] $ L.toHtml (albumArtist a)
 
 renderHead :: Text -> L.Html ()
 renderHead t =
@@ -228,11 +228,14 @@ renderHead t =
     L.meta_ [L.charset_ "utf-8"]
     L.meta_ [L.name_ "viewport", L.content_ "width=device-width, initial-scale=1.0"]
     L.meta_ [L.httpEquiv_ "X-UA-Compatible", L.content_ "ie=edge"]
-    L.link_
-      [ L.rel_ "stylesheet",
-        L.type_ "text/css",
-        L.href_ "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
-      ]
+    -- L.link_
+    --   [ L.rel_ "stylesheet",
+    --     L.type_ "text/css",
+    --     L.href_ "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+    --   ]
+    let ttt :: Text; ttt = ""
+    L.script_ [L.src_ "https://kit.fontawesome.com/dd23371146.js", L.crossorigin_ "anonymous"] ttt
+    -- <script src="https://kit.fontawesome.com/dd23371146.js" crossorigin="anonymous"></script>
     L.style_ styleqq
 
 styleqq :: Text
@@ -382,6 +385,8 @@ p.album-artist {
   width:  205px;
   height: 205px;
   position: relative;
+  text-align: center;
+  vertical-align: middle;
 }
 .cover-container:hover {
   box-shadow: 0 0 2px 1px rgba(0, 140, 186, 0.5);
@@ -414,13 +419,17 @@ p.album-artist {
 .cover-obackground {
   width: 16px;
   height: 16px;
-  padding: 0px;
+  padding-top: 1px;
   border-radius: 4px;
   position: absolute;
   right: 7;
   bottom: 7;
   background-color: rgba(255,255,255,.5);
 }
+.cover-obackground a:link { color: black; }
+.cover-obackground a:visited { color: black; }
+.cover-obackground a:hover { color: red; }
+
 .cover-oimage {
   display: block;
   width: 16px;
@@ -428,13 +437,13 @@ p.album-artist {
   padding: 0px;
 }
 a:link {
-  color: #888;
+  color: black;
 }
 a:visited {
-  color: #888;
+  color: black;
 }
 a:hover {
-  color: hotpink;
+  color: rgba(0, 140, 186, 0.5);
 }
 a:active {
   color: blue;
@@ -442,11 +451,10 @@ a:active {
 
 .rat {
   width: 70px;
-  height: 13px;
+  height: 14px;
   font-size:small;
-  text-align: center;
   color: gold;
-  padding: 0px;
+  padding-top: 1px;
   border-radius: 4px;
   position: absolute;
   left: 87;
@@ -457,7 +465,6 @@ a:active {
   width: 70px;
   height: 13px;
   font-size:small;
-  text-align: center;
   color: black;
   padding: 0px;
   border-radius: 4px;
@@ -467,26 +474,41 @@ a:active {
 }
 .plays {
   width: 15px;
-  height: 13px;
+  height: 14px;
   font-size:small;
-  text-align: center;
-  color: red;
-  padding: 0px;
+  color: black;
+  padding-top: 1px;
   border-radius: 4px;
   position: absolute;
   left: 71;
   bottom: 7;
   background-color: rgba(255,255,255,.5);
 }
+.plays .loctext {
+  visibility: hidden;
+  width: 120px;
+  padding-top: 1px;
+  background-color: black;
+  color: #777;
+  padding: 5px 0;
+  border-radius: 6px;
+  position: absolute;
+  z-index: 1;
+}
+.plays:hover .loctext {
+  visibility: visible;
+}
 
 .idx {
-  height: 16px;
+  height: 18px;
   padding-left: 4px;
   padding-right: 4px;
-  padding-bottom: 2px;
-  position: relative;
+  text-align: left;
+  position: absolute;
+  top: 1;
+  left: 1;
   display: inline-block;
-  border-radius: 8px;
+  border-radius: 9px;
   background-color: rgba(155,155,155,.5);
 }
 
@@ -501,9 +523,9 @@ a:active {
 .loc .loctext {
   visibility: hidden;
   width: 120px;
+  padding-top: 1px;
   background-color: black;
   color: #777;
-  text-align: center;
   padding: 5px 0;
   border-radius: 6px;
   position: absolute;
@@ -521,7 +543,7 @@ a:active {
 .cover-obackground1 {
   width: 16px;
   height: 16px;
-  padding: 0px;
+  border-radius: 4px;
   border-radius: 4px;
   position: absolute;
   left: 7;
@@ -533,8 +555,6 @@ a:active {
   height: 16px;
   width: 20px;
   color: black;
-  text-align: center;
-  padding: 0px;
   border-radius: 4px;
   position: absolute;
   left: 39;
@@ -552,7 +572,6 @@ a:active {
   width: 120px;
   background-color: black;
   color: #fff;
-  text-align: center;
   padding: 5px 0;
   border-radius: 6px;
   position: absolute;

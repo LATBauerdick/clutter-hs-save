@@ -90,7 +90,7 @@ getEnv (Just env) (Just discogs') = do
   _ <- writeIORef ( discogsR env ) discogs'
   _ <- writeIORef ( sortNameR env ) "Default"
   _ <- writeIORef ( sortOrderR env ) Asc
-  return env
+  pure env
 
 fromListMap :: (Text, (Int, Vector Int)) -> [(Int, (Text, Int))]
 fromListMap (ln, (_, aids)) = zipWith (\ idx aid -> (aid, (ln, idx))) [1..] (V.toList aids)
@@ -100,7 +100,7 @@ envFromFiles = do
   putTextLn "-------------envFromFiles------------------"
 
 -- define the function for (env getList) :: Env -> Text -> IO ( Vector Int )
--- that will return list of Album IDs for List name
+-- that will evaluate the list of Album IDs for List name
 --  if list in Env is empty, try to get from provider
   let getList' :: Env -> Text -> IO ( Vector Int )
       getList' env ln = do
@@ -208,14 +208,14 @@ envFromFiles = do
   ar <- newIORef albums'
   sr <- newIORef "Default"
   so <- newIORef Asc
-  return Env { discogsR = dr
-             , albumsR = ar, listsR = lr, locsR = lo
-             , listNamesR = lnr
-             , sortNameR = sr
-             , sortOrderR = so
-             , sorts = sorts'
-             , url = "/"
-             , getList = getList'
-             , getSort = getSort'
-             }
+  pure Env { discogsR = dr
+           , albumsR = ar, listsR = lr, locsR = lo
+           , listNamesR = lnr
+           , sortNameR = sr
+           , sortOrderR = so
+           , sorts = sorts'
+           , url = "/"
+           , getList = getList'
+           , getSort = getSort'
+           }
 

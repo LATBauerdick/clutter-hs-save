@@ -71,7 +71,7 @@ server env = serveAlbum
         serveAlbum aid = do
           am <- liftIO ( readIORef (albumsR env) )
           let mAlbum = M.lookup aid am
-          return $ RawHtml $ L.renderBS (renderAlbum mAlbum)
+          pure . RawHtml $ L.renderBS (renderAlbum mAlbum)
 
         serveAlbums :: Text -> Maybe Text -> Maybe Text -> Handler RawHtml
         serveAlbums listName msb mso = do
@@ -98,11 +98,11 @@ server env = serveAlbum
           lcs <- liftIO ( readIORef (locsR env) )
           di <- liftIO ( readIORef (discogsR env) )
           let envr = EnvR am lm lcs lns sn so di
-          return $ RawHtml
+          pure . RawHtml
                 $ L.renderBS ( renderAlbums env envr listName aids )
         -- serveJSON :: Server API2
         -- serveJSON = do
-        --   return $ M.elems ( albums env )
+        --   pure $ M.elems ( albums env )
 
         serveDiscogs :: Text -> Text -> Handler RawHtml
         serveDiscogs token username = do
@@ -117,7 +117,7 @@ server env = serveAlbum
           let ln = "Discogs"
           aids <- liftIO ( getList env env ln )
           let envr = EnvR am lm lcs lns sn so di
-          return $ RawHtml $ L.renderBS ( renderAlbums env envr ln aids )
+          pure . RawHtml $ L.renderBS ( renderAlbums env envr ln aids )
 
         serveTidal :: Text -> Text -> Handler RawHtml
         serveTidal token username = do
@@ -132,7 +132,7 @@ server env = serveAlbum
           let ln = "Tidal"
           aids <- liftIO ( getList env env ln )
           let envr = EnvR am lm lcs lns sn so di
-          return $ RawHtml $ L.renderBS ( renderAlbums env envr ln aids )
+          pure . RawHtml $ L.renderBS ( renderAlbums env envr ln aids )
 
 
 -- type App = ReaderT Env IO

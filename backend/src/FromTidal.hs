@@ -5,14 +5,14 @@
 {-# LANGUAGE TypeOperators   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module FromTidal ( readTidalReleases
+module FromTidal ( readTidalReleases, readReleasesFromCache
                  ) where
 import Relude
 
 import Network.HTTP.Client ( newManager )
 import Network.HTTP.Client.TLS ( tlsManagerSettings )
 
-import Data.Aeson ( (.:), (.:?), (.!=), FromJSON (..), withObject )
+import Data.Aeson ( (.:), (.:?), (.!=), FromJSON (..), withObject, eitherDecode )
 -- import GHC.Generics
 
 -- import Data.Proxy
@@ -50,7 +50,7 @@ instance FromJSON WTIItem where
     url_          <- o .: "url"
     cover_        <- o .:? "cover" .!= ""
     artists_      <- o .: "artists"
-    return $ WTIItem id_ title_ releaseDate_ url_ cover_ artists_
+    pure $ WTIItem id_ title_ releaseDate_ url_ cover_ artists_
 
 data WTArtist = WTArtist
                 { id :: Int
@@ -152,4 +152,29 @@ readTidalReleases tinf = do
   -- F.for_ (take 5 rs) (\r -> print $ show (FJ.dtitle r) <> show (FJ.dartists r))
 
   pure rs
+
+newtype FJRelease = FJRelease Release
+unFJRelease :: FJRelease -> Release
+unFJRelease (FJRelease r) = r
+
+instance FromJSON FJRelease where
+  parseJSON = withObject "release" $ \ o -> do
+    daid_      <- o .: "id"
+    dtitle_    <- o .: "title"
+    dartists_  <- o .: "artists"
+    dreleased_ <- o .: "released"
+    dadded_    <- o .: "added"
+    dcover_    <- o .:? "cover" .!= ""
+    dfolder_   <- o .: "folder"
+    -- dnotes_    <- o .: "notes"
+    pure $ FJRelease ( Release daid_ dtitle_ dartists_ dreleased_ dadded_ dcover_ dfolder_ [] Nothing Nothing 0 0) -- dnotes_
+
+
+readReleasesFromCache :: FilePath -> IO [ Release ]
+readReleasesFromCache fn =do
+    ds <- (eitherDecode <$> readFileLBS fn) :: IO (Either String [FJRelease])
+    case ds of
+      Left err -> putTextLn $ toText err
+      Right _ -> pure () -- print $ drop (length ds-4) ds
+    pure $ unFJRelease <$> fromRight [] ds
 
