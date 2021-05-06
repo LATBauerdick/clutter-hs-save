@@ -10,7 +10,7 @@ module Provider ( readListAids
                 ) where
 import Relude
 
-import qualified FromTidal as FT ( readTidalReleases, readReleasesFromCache )
+import qualified FromTidal as FT ( readTidalReleases, readTidalReleasesCache )
 import qualified FromDiscogs as FD ( readDiscogsReleases
                                    , readDiscogsReleasesCache
                                    , readDiscogsLists
@@ -67,7 +67,7 @@ instance Provider Tidal where
                           0
 
     ds <- case getTidal p of
-          TidalFile fn -> FT.readReleasesFromCache fn
+          TidalFile fn -> FT.readTidalReleasesCache fn
           _ -> FT.readTidalReleases (getTidal p)
     let as  = toAlbum <$> ds
 

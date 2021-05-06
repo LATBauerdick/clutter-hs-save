@@ -151,7 +151,6 @@ renderAlbums env envr ln aids =
               Just loc ->
                 L.div_ [L.class_ "cover-obackground2"] $ do
                   L.a_ [L.href_ (url env <> "albums/" <> loc <> "?sortBy=Default&sortOrder=" <> show Asc)] $
-                    -- L.i_ [ L.class_ "fa fa-align-justify fa-rotate-90", L.style_ "color:red"] ""
                     L.i_ [ L.class_ "fa fa-barcode", L.style_ "color:red" ] ""
                   L.span_ [L.class_ "loctext"] $ do
                     "Location: "

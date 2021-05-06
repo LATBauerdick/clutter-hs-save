@@ -132,14 +132,15 @@ envFromFiles = do
 --
 -- debug: get web credentials etc
   t <- readFileText "data/tok.dat" -- for debug, get from file with authentication data
-  let [t0, t1, t2, t3, t4] = words t
+  let [t0, t1, t2, t3, t4, t5] = words t
       countryCode = t4
       sessionId = t3
       userId = fromMaybe 0 $ readMaybe ( toString t2 ) :: Int
       discogsToken = t0
       discogsUser = t1
-  let tidal = Tidal $ TidalFile "data/tall.json"
-  -- let tidal = Tidal $ TidalSession userId sessionId countryCode
+      accessToken = t5
+  -- let tidal = Tidal $ TidalFile "data/traw1.json"
+  let tidal = Tidal $ TidalSession userId sessionId countryCode accessToken
   -- let dc = Discogs $ DiscogsSession discogsToken discogsUser
   let dc = Discogs $ DiscogsFile "data/"
 

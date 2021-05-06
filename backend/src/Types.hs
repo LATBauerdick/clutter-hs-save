@@ -17,7 +17,7 @@ import Relude
 import qualified Text.Show
 import Data.Vector ( Vector )
 
-data TidalInfo = TidalFile FilePath | TidalSession Int Text Text
+data TidalInfo = TidalFile FilePath | TidalSession Int Text Text Text
 data DiscogsInfo = DiscogsFile FilePath | DiscogsSession Text Text
   deriving Show
 

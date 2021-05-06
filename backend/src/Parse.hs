@@ -94,7 +94,7 @@ sepBy :: Parser a -> Parser b -> Parser [b]
 sepBy sep element = (:) <$> element <*> many (sep *> element) <|> pure []
 
 jsonArray :: Parser JsonValue
-jsonArray = JsonArray <$> (charP '[' *> ws *> 
+jsonArray = JsonArray <$> (charP '[' *> ws *>
                          elements
                          <* ws <* charP ']')
   where

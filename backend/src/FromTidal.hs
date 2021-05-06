@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeOperators   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module FromTidal ( readTidalReleases, readReleasesFromCache
+module FromTidal ( readTidalReleases, readTidalReleasesCache
                  ) where
 import Relude
 
@@ -59,8 +59,9 @@ data WTArtist = WTArtist
 instance FromJSON WTArtist
 
 type UserAgent = Text
-type TidalUserId = Int
 type TidalSessionId = Text
+type TidalAccessToken = Text
+type TidalUserId = Int
 type TidalCountryCode = Text
 type TidalLimit = Int
 type TidalOffset = Int
@@ -75,6 +76,7 @@ type TidalAPI =
        :> QueryParam "limit" TidalLimit
        :> QueryParam "offset" TidalOffset
        :> Header "User-Agent" UserAgent
+       :> Header "Authorization" TidalAccessToken
        :> Get '[JSON] WTidal
 tidalAPI :: Proxy TidalAPI
 tidalAPI = Proxy
@@ -84,12 +86,14 @@ getTidal :: TidalUserId
          -> Maybe TidalLimit
          -> Maybe TidalOffset
          -> Maybe UserAgent
+         -> Maybe TidalAccessToken
          -> ClientM WTidal
 getTidal = client tidalAPI
 
 data TEnv = TEnv { userId :: TidalUserId
                  , sessionId :: TidalSessionId
                  , countryCode :: TidalCountryCode
+                 , accessToken :: TidalAccessToken
                  , tlimit :: TidalLimit
                  , toffset :: TidalOffset
                  , tclient :: ClientEnv
@@ -97,11 +101,12 @@ data TEnv = TEnv { userId :: TidalUserId
 readTidalReleases :: TidalInfo -> IO [Release]
 readTidalReleases tinf = do
   m <- newManager tlsManagerSettings  -- defaultManagerSettings
-  let TidalSession uid sid cc = tinf
+  let TidalSession uid sid cc at = tinf
       tenv :: TEnv
       tenv = TEnv { userId = uid
                   , sessionId = sid
                   , countryCode = cc
+                  , accessToken = "Bearer " <> at
                   , tlimit = 2999 -- 5
                   , toffset = 0 -- 1563 -- error at 1565
                   , tclient = mkClientEnv m ( BaseUrl Https "api.tidalhifi.com" 443 "v1" )
@@ -113,13 +118,43 @@ readTidalReleases tinf = do
                            ( Just (tlimit tenv) )
                            ( Just (toffset tenv) )
                            ( Just "ClutterApp/0.1" )
+                           ( Just (accessToken tenv) )
   putTextLn "-----------------Getting Favorite Albums from Tidal-----"
   res <- runClientM tquery ( tclient tenv )
   case res of
     Left err -> putTextLn $ "Error: " <> show err
     Right _ -> pure ()
-  let getReleases :: WTidal -> [Release]
-      getReleases t = getRelease <$> tis where
+
+  let rs = case res of
+        Left _ -> []
+        Right t -> getReleases t
+  -- F.for_ (take 5 rs) (\r -> print $ show (FJ.dtitle r) <> show (FJ.dartists r))
+
+  pure rs
+
+readTidalReleasesCache ::  FilePath -> IO [Release]
+readTidalReleasesCache fn = do
+  res <- releasesFromCacheFile fn
+  case res of
+    Left err -> putTextLn $ "Error: " <> show err
+    Right _ -> pure ()
+
+  let rs = case res of
+        Left _ -> []
+        Right t -> getReleases t
+
+  pure rs
+
+
+
+releasesFromCacheFile :: FilePath -> IO (Either String WTidal)
+releasesFromCacheFile fn = do
+  putTextLn "-----------------Getting Favorite Albums from Tidal Cache-----"
+  (eitherDecode <$> readFileLBS fn) :: IO (Either String WTidal)
+
+
+getReleases :: WTidal -> [Release]
+getReleases t = getRelease <$> tis where
         WTidal {items=tis} = t
         getRelease :: WTItem -> Release
         getRelease ti = r where
@@ -146,35 +181,4 @@ readTidalReleases tinf = do
                        , dplays = 0
                        }
 
-      rs = case res of
-        Left _ -> []
-        Right t -> getReleases t
-  -- F.for_ (take 5 rs) (\r -> print $ show (FJ.dtitle r) <> show (FJ.dartists r))
-
-  pure rs
-
-newtype FJRelease = FJRelease Release
-unFJRelease :: FJRelease -> Release
-unFJRelease (FJRelease r) = r
-
-instance FromJSON FJRelease where
-  parseJSON = withObject "release" $ \ o -> do
-    daid_      <- o .: "id"
-    dtitle_    <- o .: "title"
-    dartists_  <- o .: "artists"
-    dreleased_ <- o .: "released"
-    dadded_    <- o .: "added"
-    dcover_    <- o .:? "cover" .!= ""
-    dfolder_   <- o .: "folder"
-    -- dnotes_    <- o .: "notes"
-    pure $ FJRelease ( Release daid_ dtitle_ dartists_ dreleased_ dadded_ dcover_ dfolder_ [] Nothing Nothing 0 0) -- dnotes_
-
-
-readReleasesFromCache :: FilePath -> IO [ Release ]
-readReleasesFromCache fn =do
-    ds <- (eitherDecode <$> readFileLBS fn) :: IO (Either String [FJRelease])
-    case ds of
-      Left err -> putTextLn $ toText err
-      Right _ -> pure () -- print $ drop (length ds-4) ds
-    pure $ unFJRelease <$> fromRight [] ds
 
