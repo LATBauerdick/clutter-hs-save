@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 342088cee1a9575f03dcc2de2d9090100195ae4419e356bcac4852c1ed7823b0
+-- hash: de21c7198ae9f486ec9c9e3fe0e40e1e58ee16d258e094afc4237d2518c1d5d1
 
 name:           backend
 version:        0.1.0.0
@@ -31,7 +31,6 @@ library
       App
       Env
       FromDiscogs
-      FromJSON
       FromTidal
       Parse
       Provider
