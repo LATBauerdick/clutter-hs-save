@@ -1,5 +1,6 @@
 node_modules
 backend/.stack-work
 backend/data
+backend/dist-newstyle
 .hie
 .DS_Store
